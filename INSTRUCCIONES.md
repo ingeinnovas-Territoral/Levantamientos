@@ -71,6 +71,12 @@ Con el iPad conectado:
 - **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
 - **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK. Los muros de al lado se acomodan solos.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
+- **Cubierta:** arrastra con el lápiz de una esquina a la otra para dibujarla. Si solo tocas dentro de un espacio, se crea encima de él con un alero de 0.50 m.
+  - En la barra de arriba eliges el tipo: Plana, 1 agua, 2 aguas o 4 aguas.
+  - Tocando el % cambias la pendiente; con **Girar caída** cambias hacia dónde corre el agua.
+  - Con **Mover:** arrastra la cubierta, estira sus esquinas o gírala con el círculo.
+  - En **Datos** pones la altura del alero o de la cumbrera (la pendiente se recalcula sola), el material y el estado.
+  - El PDF y el DXF traen una hoja de **planta de cubiertas**, y el cuadro muestra el área en planta y el área inclinada.
 - **Elemento** (columnas, vigas, aparatos, tanques…): elige el elemento, tócalo en el plano y arrástralo a donde quieras. Cerca de una esquina o de un muro se pega solo.
   - El círculo de arriba lo gira.
   - El punto de la esquina cambia su tamaño.
