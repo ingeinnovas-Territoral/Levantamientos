@@ -751,18 +751,25 @@ function drawOverlay(tf){
 }
 
 /* ---- barra contextual ---- */
-function renderChip(){const ch=$('#chip');let h='';
+let chipRen=false;
+function saveSpaceName(){const i=$('#sRenIn'),n=i?i.value.trim():'',s=curSpace();if(!n){toast('Escribe un nombre');return}chipRen=false;if(s){pushUndo();s.name=n;saved()}renderAll()}
+function renderChip(){const ch=$('#chip');let h='';if(sel.t!=='space')chipRen=false;
   if(view.mode!=='planta'&&view.mode!=='alzados'){ch.hidden=true;return}
   const cs=chainSpace();
   if(view.tool==='muro'&&cs&&cs.walls.length){const g=geom(cs);h=`<b>${esc(cs.name)}</b><span class="num">${cs.walls.length} muros · faltan ${f2(g.gap)} m</span>${cs.walls.length>=2?'<button class="btn sm acc" data-c="close">Cerrar</button>':''}<button class="btn sm" data-c="undowall">Quitar último</button><button class="btn sm" data-c="end">Terminar</button>`}
   else if(sel.t==='el'&&curEl()){const e=curEl(),c=CAT[e.type]||CAT.mueble;h=`<b>${esc(c.n)}</b><span class="num">${c.marker?esc(e.pat):(c.circ?'Ø '+f2(e.w):f2(e.w)+'×'+f2(e.d))+' · h '+f2(e.h)}</span>${c.marker?'':'<button class="btn sm" data-c="rot90">Girar 90°</button>'}<button class="btn sm" data-c="dup">Duplicar</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='op'&&curOp()){const o=curOp(),code=opCodes()[o.id];h=`<b>${code}</b><span class="num">${f2(o.w)}×${f2(o.h)}${o.sill?' · ant. '+f2(o.sill):''}</span>${o.type==='puerta'?'<button class="btn sm" data-c="hinge">Bisagra</button><button class="btn sm" data-c="swing">'+(o.swing==='ext'?'Abre afuera':'Abre adentro')+'</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w);h=`<b>M${i+1}</b><span class="num">${f2(geom(s).segs[i].L)} m · h ${f2(wh(w,s,'i'))}${wh(w,s,'i')!==wh(w,s,'f')?'→'+f2(wh(w,s,'f')):''}</span><button class="btn sm" data-c="len">Medida</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
-  else if(sel.t==='space'&&curSpace()){const s=curSpace(),g=geom(s);h=`<b>${esc(s.name)}</b><span class="num">${g.closed?f2(g.area)+' m²':'abierto'} · h ${f2(s.h)}</span>${!g.closed&&s.walls.length?'<button class="btn sm" data-c="cont">Seguir dibujando</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
+  else if(sel.t==='space'&&curSpace()&&chipRen){const s=curSpace();h=`<input id="sRenIn" value="${esc(s.name)}" aria-label="Nombre del espacio" style="width:190px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="srenok">Guardar</button><button class="btn sm" data-c="srencancel">Cancelar</button>`}
+  else if(sel.t==='space'&&curSpace()){const s=curSpace(),g=geom(s);h=`<b>${esc(s.name)}</b><span class="num">${g.closed?f2(g.area)+' m²':'abierto'} · h ${f2(s.h)}</span>${!g.closed&&s.walls.length?'<button class="btn sm" data-c="cont">Seguir dibujando</button>':''}<button class="btn sm" data-c="sren">Renombrar</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   ch.innerHTML=h;ch.hidden=!h;
 }
+$('#chip').addEventListener('keydown',e=>{if(e.target.id==='sRenIn'){if(e.key==='Enter'){e.preventDefault();saveSpaceName()}if(e.key==='Escape'){chipRen=false;renderChip()}}});
 $('#chip').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(!b)return;const c=b.dataset.c;
   if(c==='more'){setPanel(true);return}
+  if(c==='sren'){chipRen=true;renderChip();setTimeout(()=>{const i=$('#sRenIn');if(i){i.focus();i.select()}},30);return}
+  if(c==='srencancel'){chipRen=false;renderChip();return}
+  if(c==='srenok'){saveSpaceName();return}
   if(c==='end'){endChain();renderAll();return}
   if(c==='cont'){drawSid=sel.sid;setTool('muro');return}
   if(c==='close'){const s=chainSpace();if(s){drawSid=null;sel={t:'space',sid:s.id};act('close');}return}
@@ -1096,24 +1103,29 @@ function build3D(refit){
 
 /* ============ proyectos ============ */
 $('#btnProj').onclick=openDrawer;
+$('#drawer').addEventListener('keydown',e=>{if(e.target.id==='renIn'){if(e.key==='Enter'){e.preventDefault();projAct('renok',pRen)}if(e.key==='Escape')projAct('rencancel')}});
 $('#drawer').addEventListener('click',e=>{if(e.target.id==='drawer'){$('#drawer').hidden=true;return}const b=e.target.closest('[data-p]');if(!b)return;projAct(b.dataset.p,b.dataset.v)});
-let pDel=null;
+let pDel=null,pRen=null;
 function openDrawer(){renderDrawer();$('#drawer').hidden=false}
 function renderDrawerIfOpen(){if(!$('#drawer').hidden)renderDrawer()}
 function renderDrawer(){const ps=Object.values(store.projects).sort((a,b)=>(b.updated||0)-(a.updated||0));
   $('#drawerIn').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Proyectos</h2><button class="btn" data-p="close">Cerrar</button></div>
   <div class="row-btns"><button class="btn acc" data-p="new">+ Nuevo levantamiento</button><button class="btn" data-p="import">Importar respaldo…</button></div>
   <div class="list">${ps.map(p=>`<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-bottom:1px solid var(--line);background:${p.id===P.id?'var(--accentwash)':'var(--panel)'}">
-   <div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="num" style="font:12px var(--f-num);color:var(--ink2)">${new Date(p.updated||0).toLocaleDateString('es-CO')}</span></div>
+   ${pRen===p.id?`<div style="display:flex;gap:6px;align-items:center"><input id="renIn" value="${esc(p.name)}" aria-label="Nombre del levantamiento" style="flex:1;min-width:0;font-size:16px;padding:8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-p="renok" data-v="${p.id}">Guardar</button><button class="btn sm" data-p="rencancel">Cancelar</button></div>`:`<div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="num" style="font:12px var(--f-num);color:var(--ink2)">${new Date(p.updated||0).toLocaleDateString('es-CO')}</span></div>`}
    <span class="hint">${(p.spaces||[]).length} espacios${p.mun?' · '+esc(p.mun):''}</span>
-   <div class="row-btns">${p.id!==P.id?`<button class="btn sm" data-p="open" data-v="${p.id}">Abrir</button>`:'<span class="hint">Abierto</span>'}<button class="btn sm" data-p="dup" data-v="${p.id}">Duplicar</button>
+   <div class="row-btns">${p.id!==P.id?`<button class="btn sm" data-p="open" data-v="${p.id}">Abrir</button>`:'<span class="hint">Abierto</span>'}<button class="btn sm" data-p="ren" data-v="${p.id}">Renombrar</button><button class="btn sm" data-p="dup" data-v="${p.id}">Duplicar</button>
    ${pDel===p.id?`<span class="confirm">¿Eliminar? <button class="btn sm dng" data-p="del" data-v="${p.id}">Sí</button><button class="btn sm" data-p="nodel">No</button></span>`:`<button class="btn sm dng" data-p="askdel" data-v="${p.id}">Eliminar</button>`}</div></div>`).join('')}</div>
   <p class="hint">Tus proyectos se guardan solo en este iPad. Exporta un respaldo .json de cada proyecto y pásalo al computador de vez en cuando.</p>`}
 function openProject(id){P=store.projects[id];store.current=id;saveLocal();undoS=[];redoS=[];sel={t:'proj'};view.piso=1;renderAll();setMode(view.mode)}
 function projAct(a,v){
   if(a!=='askdel')pDel=null;
+  if(a!=='ren'&&a!=='renok')pRen=null;
   if(a==='close'){$('#drawer').hidden=true;return}
-  if(a==='new'){const p=newProject('Levantamiento '+(Object.keys(store.projects).length+1));store.projects[p.id]=p;saveLocal();queueRemote(p.id);openProject(p.id);$('#drawer').hidden=true;return}
+  if(a==='new'){const p=newProject('Levantamiento '+(Object.keys(store.projects).length+1));store.projects[p.id]=p;saveLocal();queueRemote(p.id);openProject(p.id);projAct('ren',p.id);return}
+  if(a==='ren'){pRen=v;renderDrawer();setTimeout(()=>{const i=$('#renIn');if(i){i.focus();i.select()}},30);return}
+  if(a==='rencancel'){renderDrawer();return}
+  if(a==='renok'){const i=$('#renIn'),n=i?i.value.trim():'';if(!n){toast('Escribe un nombre');return}const p=store.projects[v];if(p){p.name=n;p.updated=Date.now();delete p.example;saveLocal();queueRemote(v)}pRen=null;renderDrawer();renderAll();toast('Nombre guardado');return}
   if(a==='import'){$('#fileIn').click();return}
   if(a==='open'){openProject(v);$('#drawer').hidden=true;return}
   if(a==='dup'){const p=JSON.parse(JSON.stringify(store.projects[v]));p.id=uid();p.name+=' (copia)';p.updated=Date.now();delete p.example;store.projects[p.id]=p;saveLocal();queueRemote(p.id);renderDrawer();return}
