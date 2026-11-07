@@ -77,6 +77,14 @@ Con el iPad conectado:
   - Con **Mover:** arrastra la cubierta, estira sus esquinas o gírala con el círculo.
   - En **Datos** pones la altura del alero o de la cumbrera (la pendiente se recalcula sola), el material y el estado.
   - El PDF y el DXF traen una hoja de **planta de cubiertas**, y el cuadro muestra el área en planta y el área inclinada.
+- **Espacios:** el nombre y el área solo aparecen cuando el espacio queda cerrado. Mientras esté abierto, se ve como "Muros abiertos".
+  - Para volverlo espacio sin cerrarlo, tócalo y luego **Convertir en espacio**.
+  - Toca los muros que lo forman; puedes sumar muros de otros tramos y quitar los que no van. El lado que falte se cierra con una línea punteada.
+  - Toca **Listo** y escribe el nombre.
+  - Después puedes cambiarle el nombre o los muros.
+- **Mobiliario por familias:** en **Elemento** eliges la familia (Estructura, Instalaciones, Cocina, Baño, Zona de ropas, Sala, Comedor, Alcoba, Oficina, Exterior y vehículos) y luego el objeto.
+  - Las camas, sofás, clósets y aparatos se pegan solos al muro, con el respaldo contra la pared.
+  - En el DXF van en la capa MOBILIARIO.
 - **Elemento** (columnas, vigas, aparatos, tanques…): elige el elemento, tócalo en el plano y arrástralo a donde quieras. Cerca de una esquina o de un muro se pega solo.
   - El círculo de arriba lo gira.
   - El punto de la esquina cambia su tamaño.
