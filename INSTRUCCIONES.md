@@ -97,6 +97,18 @@ Con el iPad conectado:
   - Puertas: batiente de 1 o 2 hojas, vaivén, corrediza, corrediza empotrada, plegable, pivotante, puerta-ventana, enrollable, garaje seccional y reja.
   - Ventanas: corrediza, batiente, proyectante, basculante, fija, guillotina, celosía y ventanal.
   - Para cambiar el tipo de una que ya pusiste, tócala y toca su nombre en la barra de arriba.
+- **Pisos:** en el selector de abajo eliges el piso o tocas **+ Agregar piso**.
+  - En **Datos** (sin nada seleccionado) defines el nombre, la cota y la altura de cada piso.
+  - Al dibujar un piso de arriba, los muros del piso de abajo se ven de fondo como referencia.
+- **Losa:** arrastra de esquina a esquina, o toca dentro de un espacio para crear la losa con su forma.
+  - Arriba cambias el espesor y el nivel, o agregas un **vacío** (para escaleras o patios) tocando sus esquinas.
+- **Escalera:** elige recta, en L, en U o caracol y arrastra desde el arranque hacia donde sube.
+  - La app calcula las contrahuellas según la altura del piso y te dice si cumple la regla de Blondel.
+  - Con el círculo la giras; arriba cambias el tipo, el giro, los pasos y el ancho.
+- **Corte:** dibuja la línea de corte con el lápiz; la flecha indica hacia dónde se mira.
+  - **Ver corte** lo abre en la pestaña **Cortes**, donde también están las 4 fachadas automáticas. Lo cortado sale relleno y lo de fondo en proyección, con los niveles de cada piso.
+  - **Invertir vista** cambia el lado; **Profundidad** define hasta dónde se ve.
+  - Los cortes y fachadas salen también en el PDF y en el DXF.
 - **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
 - **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
 - **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
