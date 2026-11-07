@@ -65,6 +65,20 @@ Con el iPad conectado:
 
 ---
 
+## Trabajar con el Apple Pencil
+
+- **El lápiz dibuja y arrastra. El dedo mueve el plano**, y con dos dedos se hace zoom. Si no tienes el lápiz a mano, activa **Dedo** en la barra.
+- **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
+- **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK. Los muros de al lado se acomodan solos.
+- **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
+- **Elemento** (columnas, vigas, aparatos, tanques…): elige el elemento, tócalo en el plano y arrástralo a donde quieras. Cerca de una esquina o de un muro se pega solo.
+  - El círculo de arriba lo gira.
+  - El punto de la esquina cambia su tamaño.
+- **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
+- **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
+- **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
+- **Datos:** el botón de arriba abre el panel con toda la información del elemento seleccionado.
+
 ## Uso diario sin internet
 
 - Ábrela siempre **desde el ícono**, no desde Safari.
@@ -85,6 +99,9 @@ Con el iPad conectado:
 ## Cuando haya una versión nueva
 
 1. Sube los archivos nuevos al mismo repositorio para reemplazar los anteriores (Add file → Upload files → Commit changes).
-2. Abre la app desde el ícono **con internet** una vez. Ciérrala y vuelve a abrirla.
+2. Espera unos 2 minutos a que GitHub publique los cambios.
+3. En el iPad, con internet, abre la app desde el ícono y espera unos 10 segundos.
+4. Ciérrala por completo: desliza hacia arriba desde la parte de abajo de la pantalla y quita la app de la lista.
+5. Ábrela otra vez. Ya tendrás la versión nueva.
 
 Tus proyectos no se pierden al actualizar.
