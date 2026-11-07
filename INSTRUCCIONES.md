@@ -93,6 +93,10 @@ Con el iPad conectado:
 - **Elemento** (columnas, vigas, aparatos, tanques…): elige el elemento, tócalo en el plano y arrástralo a donde quieras. Cerca de una esquina o de un muro se pega solo.
   - El círculo de arriba lo gira.
   - El punto de la esquina cambia su tamaño.
+- **Tipos de puertas y ventanas:** al tocar Puerta o Ventana se abre la biblioteca. Elige el tipo y toca el muro donde va.
+  - Puertas: batiente de 1 o 2 hojas, vaivén, corrediza, corrediza empotrada, plegable, pivotante, puerta-ventana, enrollable, garaje seccional y reja.
+  - Ventanas: corrediza, batiente, proyectante, basculante, fija, guillotina, celosía y ventanal.
+  - Para cambiar el tipo de una que ya pusiste, tócala y toca su nombre en la barra de arriba.
 - **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
 - **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
 - **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
