@@ -13,6 +13,7 @@
 <meta name="theme-color" content="#F8F9F6">
 <script src="three.min.js"></script>
 <script src="jspdf.umd.min.js"></script>
+<script src="polygon-clipping.umd.min.js"></script>
 <style>
 /* Layout: mesa de dibujo — barra superior, lienzo de planta a la izquierda, inspector de campo a la derecha (abajo en pantallas angostas). */
 :root{
@@ -188,6 +189,7 @@ main.nopanel aside{display:none}
       <div id="cuadro" hidden></div>
       <div class="rail" id="rail" role="toolbar" aria-label="Herramientas"></div>
       <div class="elpal" id="elpal" hidden></div>
+      <div class="elpal" id="roofpal" hidden></div>
       <div class="chip" id="chip" hidden></div>
       <div class="qedit" id="qedit" hidden><input id="qIn" inputmode="decimal" autocomplete="off" aria-label="Nueva medida"><span id="qUnit">m</span><button class="btn pri sm" id="qOk">OK</button></div>
       <div class="tools" id="tools">
@@ -643,75 +645,177 @@ function inspZone(){const z=curZone(),g=zoneGeom(z);let wb=0;g.refs.forEach(r=>{
   </div>
   <div class="sec">${delConfirm('delZone','Eliminar espacio')}</div>`}
 
-/* ============ cubiertas (objeto independiente, tipo ArchiCAD) ============ */
-const RTYPES=[['plana','Plana'],['una','1 agua'],['dos','2 aguas'],['cuatro','4 aguas']];
-const RTN=t=>(RTYPES.find(x=>x[0]===t)||[0,''])[1];
-function newRoof(o){return Object.assign({id:uid(),piso:view.piso,x:0,y:0,w:6,d:4,rot:0,tipo:'dos',pend:30,hA:2.6,dir:'x',cae:'S',mat:'',nota:''},o)}
+/* ============ cubiertas: motor de varias aguas (como la cubierta multiplano de ArchiCAD) ============ */
+const RFORMS=[['rect','Rectangular','Arrastra de esquina a esquina'],['libre','Forma libre','Toca cada esquina; toca la primera para cerrar'],['regular','Polígono regular','Arrastra del centro hacia afuera'],['circ','Circular (cono)','Arrastra del centro hacia afuera'],['cupula','Cúpula','Arrastra del centro hacia afuera'],['boveda','Bóveda','Arrastra de esquina a esquina'],['estadio','Anillo / estadio','Arrastra de esquina a esquina']];
 const roofsOf=p=>(p.roofs||(p.roofs=[]));
 const curRoof=()=>(P.roofs||[]).find(r=>r.id===sel.rid);
 function roofCodes(){const m={};(P.roofs||[]).forEach((r,i)=>m[r.id]='C'+(i+1));return m}
-function roofRun(r){if(r.tipo==='una')return(r.cae==='S'||r.cae==='N')?r.d:r.w;if(r.tipo==='dos')return r.dir==='x'?r.d/2:r.w/2;if(r.tipo==='cuatro')return Math.min(r.w,r.d)/2;return 0}
-const roofTop=r=>r.hA+roofRun(r)*(r.pend||0)/100;
-const roofAreaInc=r=>r.tipo==='plana'?r.w*r.d:r.w*r.d*Math.sqrt(1+Math.pow((r.pend||0)/100,2));
-const roofAng=r=>deg(Math.atan((r.pend||0)/100));
-/* caras en coordenadas locales [x,y,z], líneas de cumbrera/limatesa y flechas de caída */
-function roofModel(r){
-  const p=(r.pend||0)/100,z0=r.hA,F=[],Ln=[],Ar=[];
-  if(r.tipo==='plana'||p<=0){const hw=r.w/2,hd=r.d/2;F.push([[-hw,-hd,z0],[hw,-hd,z0],[hw,hd,z0],[-hw,hd,z0]]);return{F,Ln,Ar}}
-  if(r.tipo==='una'){const hw=r.w/2,hd=r.d/2,c=r.cae;const zf=(x,y)=>c==='S'?z0+(y+hd)*p:c==='N'?z0+(hd-y)*p:c==='O'?z0+(x+hw)*p:z0+(hw-x)*p;
-    F.push([[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([x,y])=>[x,y,zf(x,y)]));const v={S:[0,-1],N:[0,1],E:[1,0],O:[-1,0]}[c]||[0,-1],run=v[0]?r.w:r.d;Ar.push({a:mul(v,-run*.22),b:mul(v,run*.22)});return{F,Ln,Ar}}
-  // 2 y 4 aguas: se calcula con la cumbrera sobre el eje X y se rota si hace falta
-  const swap=r.tipo==='dos'?r.dir==='y':r.d>r.w;const W=swap?r.d:r.w,D=swap?r.w:r.d,hw=W/2,hd=D/2,zc=z0+hd*p;
-  const f=[],l=[],a=[];
-  if(r.tipo==='dos'){f.push([[-hw,-hd,z0],[hw,-hd,z0],[hw,0,zc],[-hw,0,zc]],[[-hw,0,zc],[hw,0,zc],[hw,hd,z0],[-hw,hd,z0]]);l.push({a:[-hw,0],b:[hw,0],k:'ridge'});a.push({a:[0,-hd*.25],b:[0,-hd*.78]},{a:[0,hd*.25],b:[0,hd*.78]})}
-  else{const rx=Math.max(0,hw-hd);f.push([[-hw,-hd,z0],[hw,-hd,z0],[rx,0,zc],[-rx,0,zc]],[[hw,hd,z0],[-hw,hd,z0],[-rx,0,zc],[rx,0,zc]],[[hw,-hd,z0],[hw,hd,z0],[rx,0,zc]],[[-hw,hd,z0],[-hw,-hd,z0],[-rx,0,zc]]);
-    if(rx>1e-3)l.push({a:[-rx,0],b:[rx,0],k:'ridge'});[[-hw,-hd,-rx],[-hw,hd,-rx],[hw,-hd,rx],[hw,hd,rx]].forEach(([x,y,e])=>l.push({a:[x,y],b:[e,0],k:'hip'}));
-    a.push({a:[0,-hd*.2],b:[0,-hd*.75]},{a:[0,hd*.2],b:[0,hd*.75]},{a:[rx+(hw-rx)*.2,0],b:[rx+(hw-rx)*.8,0]},{a:[-rx-(hw-rx)*.2,0],b:[-rx-(hw-rx)*.8,0]})}
-  const S=q=>swap?[q[1],q[0]]:[q[0],q[1]];
-  f.forEach(fc=>F.push(fc.map(q=>{const s2=S(q);return[s2[0],s2[1],q[2]]})));l.forEach(x=>Ln.push({a:S(x.a),b:S(x.b),k:x.k}));a.forEach(x=>Ar.push({a:S(x.a),b:S(x.b)}));
-  return{F,Ln,Ar};
-}
-function arrowDL(dl,a,b,st,ly){dl.push(L_(a,b,st,ly));const u=unit(sub(b,a)),k=Math.min(.22,len(sub(b,a))*.35);dl.push(L_(b,add(b,mul(add(mul(u,-1),mul(perp(u),.45)),k)),st,ly),L_(b,add(b,mul(add(mul(u,-1),mul(perp(u),-.45)),k)),st,ly))}
-function roofPlanDL(dl,r,isSel,code,roofPlan){
-  const ly='CUBIERTA',st=isSel?'sel':(roofPlan?'ink':'roof'),st2=isSel?'sel':(roofPlan?'thin':'roof'),W=(x,y)=>elLocal(r,x,y),m=roofModel(r);
-  dl.push({k:'poly',pts:elCorners(r),closed:1,fill:null,st,ly});
-  m.Ln.forEach(l=>dl.push(L_(W(...l.a),W(...l.b),st2,ly)));
-  if(r.tipo!=='plana')m.Ar.forEach((x,i)=>{arrowDL(dl,W(...x.a),W(...x.b),roofPlan?'dim':'roof',ly);if(i<2||r.tipo==='una')txt(dl,W(...x.a),fc(r.pend)+' %',roofPlan?2:1.8,{st:roofPlan?'dim':'roof',ly,dy:1,font:'num'})});
-  const lp=roofPlan?W(0,0):W(0,-r.d/2+Math.min(.45,r.d*.12));txt(dl,lp,code+' · '+RTN(r.tipo)+(r.mat?' · '+r.mat:''),roofPlan?2.6:2,{st:roofPlan?'ink':'roof',ly,bold:1,dy:roofPlan&&r.tipo!=='plana'?-3.2:0,ang:roofPlan?0:rad(r.rot||0)});
-  if(roofPlan){txt(dl,W(0,0),'alero +'+f2(r.hA)+(r.tipo!=='plana'?' · cumbrera +'+f2(roofTop(r)):''),1.9,{st:'ink2',ly,dy:r.tipo!=='plana'?-7:-3.4,font:'num'});
-    const c=elCorners(r);dimDL(dl,c[0],c[1],rotV(r,[0,-.6]),f2(r.w),{ly:'COTAS'});dimDL(dl,c[1],c[2],rotV(r,[.6,0]),f2(r.d),{ly:'COTAS'})}
-}
-function roofsDL(dl,piso,opt){if(!(view.roofs||opt.print||view.tool==='cub'))return;const codes=roofCodes(),interactive=!opt.print;
-  (P.roofs||[]).filter(r=>(r.piso||1)===piso).forEach(r=>roofPlanDL(dl,r,interactive&&sel.t==='roof'&&sel.rid===r.id,codes[r.id],!!opt.roofPlan))}
-/* contorno de muros para la planta de cubiertas */
-function wallsOutlineDL(dl,piso){P.spaces.filter(s=>s.piso===piso).forEach(s=>{const g=geom(s);g.segs.forEach(sg=>dl.push(L_(toW(s,sg.oa),toW(s,sg.ob),'dash','MUROS')))})}
-/* convierte las cubiertas antiguas (dato del espacio) en cubiertas independientes */
+const polyArea=pts=>{let a=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length];a+=p[0]*q[1]-q[0]*p[1]}return a/2};
+const toCCW=pts=>polyArea(pts)<0?pts.slice().reverse():pts.slice();
+const centroid=pts=>{let A=0,cx=0,cy=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],c=a[0]*b[1]-b[0]*a[1];A+=c;cx+=(a[0]+b[0])*c;cy+=(a[1]+b[1])*c}return Math.abs(A)>1e-9?[cx/(3*A),cy/(3*A)]:pts.reduce((s,p)=>add(s,mul(p,1/pts.length)),[0,0])};
+const bboxPts=pts=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;pts.forEach(p=>{x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1])});return{x0,y0,x1,y1}};
+function lineX2(p,d,q,e){const den=d[0]*e[1]-d[1]*e[0];if(Math.abs(den)<1e-9)return null;const t=((q[0]-p[0])*e[1]-(q[1]-p[1])*e[0])/den;return add(p,mul(d,t))}
+function offsetPoly(pts,dist){const n=pts.length,out=[];for(let i=0;i<n;i++){const a=pts[(i-1+n)%n],b=pts[i],c=pts[(i+1)%n],d1=unit(sub(b,a)),d2=unit(sub(c,b)),o1=[d1[1]*dist,-d1[0]*dist],o2=[d2[1]*dist,-d2[0]*dist];const x=lineX2(add(a,o1),d1,add(b,o2),d2);out.push(x&&len(sub(x,b))<dist*4?x:add(b,o1))}return out}
+function regularPts(c,R,n,a0=0){const out=[];for(let i=0;i<n;i++){const t=a0+i/n*Math.PI*2;out.push([c[0]+Math.cos(t)*R,c[1]+Math.sin(t)*R])}return out}
+function stadiumPts(rx,ry,k=16){const out=[],cx=Math.max(0,rx-ry);for(let i=0;i<=k;i++){const t=-Math.PI/2+i/k*Math.PI;out.push([cx+Math.cos(t)*ry,Math.sin(t)*ry])}for(let i=0;i<=k;i++){const t=Math.PI/2+i/k*Math.PI;out.push([-cx+Math.cos(t)*ry,Math.sin(t)*ry])}return out}
+const RL=(r,x,y)=>{const c=Math.cos(rad(r.rot||0)),s=Math.sin(rad(r.rot||0));return[r.cx+x*c-y*s,r.cy+x*s+y*c]};
+function roofOutline(r){if(r.forma==='poligono')return r.pts;if(r.forma==='boveda')return[[-r.rx,-r.ry],[r.rx,-r.ry],[r.rx,r.ry],[-r.rx,r.ry]].map(p=>RL(r,...p));
+  if(r.forma==='cupula'){const o=[];for(let i=0;i<48;i++){const t=i/48*Math.PI*2;o.push(RL(r,Math.cos(t)*r.rx,Math.sin(t)*r.ry))}return o}
+  if(r.forma==='estadio')return stadiumPts(r.rx,r.ry).map(p=>RL(r,...p));return[]}
+/* --- planos por lado --- */
+function planeOf(r,i){const pts=r.pts,a=pts[i],b=pts[(i+1)%pts.length],d=unit(sub(b,a)),n=[-d[1],d[0]],e=r.edges[i]||{};return{i,a,b,d,n,p:e.g?0:(e.p||0)/100,g:!!e.g,L:len(sub(b,a))}}
+const zPl=(pl,hA,x)=>hA+pl.p*((x[0]-pl.a[0])*pl.n[0]+(x[1]-pl.a[1])*pl.n[1]);
+function clipHalf(poly,a,c){const out=[];for(let i=0;i<poly.length;i++){const P=poly[i],Q=poly[(i+1)%poly.length],fp=a[0]*P[0]+a[1]*P[1]-c,fq=a[0]*Q[0]+a[1]*Q[1]-c;if(fp<=0)out.push(P);if((fp<0&&fq>0)||(fp>0&&fq<0)){const t=fp/(fp-fq);out.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t])}}return out}
+function wedgeOf(PL,i,box){const n=PL.length,cur=PL[i],prv=PL[(i-1+n)%n],nxt=PL[(i+1)%n];let W=box;
+  W=clipHalf(W,[-cur.n[0],-cur.n[1]],-(cur.n[0]*cur.a[0]+cur.n[1]*cur.a[1]));
+  const ray=(o,h,isStart)=>{let u;if(o.g){u=isStart?mul(o.d,-1):o.d}else{const w=isStart?sub(mul(o.n,o.p),mul(cur.n,cur.p)):sub(mul(cur.n,cur.p),mul(o.n,o.p));u=[-w[1],w[0]];if(len(u)<1e-9)u=cur.n;else u=unit(u);if(u[0]*(cur.n[0]+o.n[0])+u[1]*(cur.n[1]+o.n[1])<0)u=mul(u,-1)}return u};
+  const side=(P0,u,keep)=>{const m=[-u[1],u[0]],s=m[0]*(keep[0]-P0[0])+m[1]*(keep[1]-P0[1]);if(Math.abs(s)<1e-9)return;const k=s>0?1:-1;W=clipHalf(W,[-k*m[0],-k*m[1]],-k*(m[0]*P0[0]+m[1]*P0[1]))};
+  side(cur.a,ray(prv,cur,true),cur.b);side(cur.b,ray(nxt,cur,false),cur.a);return W}
+function polyFaces(r){const pts=r.pts,hA=r.hA,PL=pts.map((_,i)=>planeOf(r,i));
+  if(r.plana||PL.every(p=>p.g||p.p<=0))return[{ring:pts,holes:[],pl:null}];
+  const bb=bboxPts(pts),M=Math.max(bb.x1-bb.x0,bb.y1-bb.y0)*20+100,box=[[bb.x0-M,bb.y0-M],[bb.x1+M,bb.y0-M],[bb.x1+M,bb.y1+M],[bb.x0-M,bb.y1+M]];
+  const convex=pts.every((q,i)=>{const a=pts[(i-1+pts.length)%pts.length],c=pts[(i+1)%pts.length];return (q[0]-a[0])*(c[1]-q[1])-(q[1]-a[1])*(c[0]-q[0])>=-1e-9});
+  const PCl=convex?null:window.polygonClipping,S=PL.filter(p=>!p.g),faces=[];
+  const half=(j,i)=>{const A=[PL[j].p*PL[j].n[0]-PL[i].p*PL[i].n[0],PL[j].p*PL[j].n[1]-PL[i].p*PL[i].n[1]],C=PL[j].p*(PL[j].n[0]*PL[j].a[0]+PL[j].n[1]*PL[j].a[1])-PL[i].p*(PL[i].n[0]*PL[i].a[0]+PL[i].n[1]*PL[i].a[1]);return{A,C}};
+  if(PCl){const W={};S.forEach(p=>{W[p.i]=wedgeOf(PL,p.i,box)});
+    S.forEach(pi=>{const i=pi.i;let reg;try{reg=PCl.intersection([pts],[W[i]])}catch(e){reg=[]}if(!reg.length)return;
+      const subs=[];S.forEach(pj=>{const j=pj.j??pj.i;if(j===i)return;const {A,C}=half(j,i);const pc=clipHalf(W[j],A,C-1e-4);if(pc.length>=3)subs.push([pc])});
+      if(subs.length){try{reg=PCl.difference(reg,...subs)}catch(e){}}
+      reg.forEach(poly=>{const rings=poly.map(rg=>rg.slice(0,-1));if(rings[0].length>=3&&Math.abs(polyArea(rings[0]))>1e-4)faces.push({ring:rings[0],holes:rings.slice(1),pl:PL[i]})})})}
+  else S.forEach(pi=>{let f=pts.slice();S.forEach(pj=>{if(pj.i===pi.i)return;const {A,C}=half(pj.i,pi.i);f=clipHalf(f,[-A[0],-A[1]],-C+1e-5)});if(f.length>=3&&Math.abs(polyArea(f))>1e-4)faces.push({ring:f,holes:[],pl:pi})});
+  return faces}
+/* --- geometría completa (caché) --- */
+const RCACHE=new Map();
+function roofGeo(r){const key=JSON.stringify(r)+(window.polygonClipping?1:0);if(RCACHE.has(key))return RCACHE.get(key);if(RCACHE.size>300)RCACHE.clear();
+  const G={outline:roofOutline(r),inner:null,lines:[],arrows:[],tris:null,faces:null,ap:0,ai:0,top:r.hA};const L=(a,b,k)=>G.lines.push([a,b,k||'l']);
+  if(r.forma==='poligono'){const F=polyFaces(r);G.faces=F;const pts=r.pts,n=pts.length;
+    const onOut=(a,b)=>pts.some((P,i)=>{const Q=pts[(i+1)%n],d=unit(sub(Q,P)),nn=[-d[1],d[0]],da=Math.abs((a[0]-P[0])*nn[0]+(a[1]-P[1])*nn[1]),db=Math.abs((b[0]-P[0])*nn[0]+(b[1]-P[1])*nn[1]);return da<1e-3&&db<1e-3});
+    const seen=new Set();F.forEach(f=>[f.ring,...f.holes].forEach(rg=>rg.forEach((a,k)=>{const b=rg[(k+1)%rg.length];if(len(sub(b,a))<.02||onOut(a,b))return;const ka=a.map(v=>v.toFixed(2)).join(','),kb=b.map(v=>v.toFixed(2)).join(','),key=ka<kb?ka+'|'+kb:kb+'|'+ka;if(seen.has(key))return;seen.add(key);L(a,b)})));
+    F.forEach(f=>{const A=Math.abs(polyArea(f.ring))-f.holes.reduce((s,h)=>s+Math.abs(polyArea(h)),0);G.ap+=A;G.ai+=A*Math.sqrt(1+Math.pow(f.pl?f.pl.p:0,2));[f.ring,...f.holes].forEach(rg=>rg.forEach(x=>{const z=f.pl?zPl(f.pl,r.hA,x):r.hA;if(z>G.top)G.top=z}))});
+    G.ap=Math.abs(polyArea(pts));
+    const step=n>12?Math.ceil(n/8):1;if(!r.plana)pts.forEach((_,i)=>{if(i%step)return;const pl=planeOf(r,i);if(pl.g||pl.p<=0)return;const m=mul(add(pl.a,pl.b),.5),s=Math.min(1.1,Math.max(.35,pl.L*.25)),a=add(m,mul(pl.n,.25+s)),b=add(m,mul(pl.n,.22));if(inPoly(a,pts))G.arrows.push({a,b,t:(n>12&&G.arrows.length)?'':fc(pl.p*100)+' %'})});
+    return RCACHE.set(key,G),G}
+  const tris=[];G.tris=tris;const T=(x,y,z)=>{const w=RL(r,x,y);return[w[0],w[1],z]};const q=(a,b,c,d)=>{tris.push([a,b,c],[a,c,d])};
+  if(r.forma==='cupula'){const m=8,k=32;const ring=j=>{const ph=j/m*Math.PI/2,s=Math.cos(ph),z=r.hA+r.rise*Math.sin(ph);return Array.from({length:k},(_,i)=>{const t=i/k*Math.PI*2;return T(Math.cos(t)*r.rx*s,Math.sin(t)*r.ry*s,z)})};
+    let prev=ring(0);for(let j=1;j<=m;j++){const cur=ring(j);for(let i=0;i<k;i++){const i2=(i+1)%k;q(prev[i],prev[i2],cur[i2],cur[i])}prev=cur}
+    [.45,.8].forEach(t=>{const s=Math.cos(Math.asin(t));const o=[];for(let i=0;i<=40;i++){const a=i/40*Math.PI*2;o.push(RL(r,Math.cos(a)*r.rx*s,Math.sin(a)*r.ry*s))}for(let i=0;i<40;i++)L(o[i],o[i+1],'aux')});
+    for(let i=0;i<8;i++){const a=i/8*Math.PI*2;L(RL(r,Math.cos(a)*r.rx,Math.sin(a)*r.ry),RL(r,0,0),'aux')}G.top=r.hA+r.rise}
+  if(r.forma==='boveda'){const m=12,R=(r.ry*r.ry+r.rise*r.rise)/(2*Math.max(r.rise,.01)),zf=y=>r.hA+Math.sqrt(Math.max(0,R*R-y*y))-(R-r.rise);
+    for(let j=0;j<m;j++){const y0=-r.ry+2*r.ry*j/m,y1=-r.ry+2*r.ry*(j+1)/m;q(T(-r.rx,y0,zf(y0)),T(r.rx,y0,zf(y0)),T(r.rx,y1,zf(y1)),T(-r.rx,y1,zf(y1)))}
+    L(RL(r,-r.rx,0),RL(r,r.rx,0),'l');[-.66,-.33,.33,.66].forEach(f=>L(RL(r,-r.rx,f*r.ry),RL(r,r.rx,f*r.ry),'aux'));
+    G.arrows.push({a:RL(r,0,r.ry*.2),b:RL(r,0,r.ry*.85),t:'bóveda'},{a:RL(r,0,-r.ry*.2),b:RL(r,0,-r.ry*.85),t:''});G.top=r.hA+r.rise}
+  if(r.forma==='estadio'){const a=Math.min(r.ancho,r.ry*.95),O=stadiumPts(r.rx,r.ry),I=stadiumPts(r.rx-a,r.ry-a),dz=(r.caida==='afuera'?1:-1)*a*(r.pend||0)/100;
+    G.inner=I.map(p=>RL(r,...p));for(let i=0;i<O.length;i++){const i2=(i+1)%O.length;q(T(...O[i],r.hA),T(...O[i2],r.hA),T(...I[i2],r.hA+dz),T(...I[i],r.hA+dz))}
+    for(let i=0;i<O.length;i+=4)L(RL(r,...O[i]),RL(r,...I[i]),'l');[0,8,17,25].forEach(i=>{const o=RL(r,...O[i]),n=RL(r,...I[i]);const hi=dz>0?n:o,lo=dz>0?o:n;G.arrows.push({a:add(mul(hi,.75),mul(lo,.25)),b:add(mul(hi,.2),mul(lo,.8)),t:i?'':fc(r.pend)+' %'})});G.top=Math.max(r.hA,r.hA+dz)}
+  G.ap=Math.abs(polyArea(G.outline))-(G.inner?Math.abs(polyArea(G.inner)):0);
+  tris.forEach(t=>{const u=[t[1][0]-t[0][0],t[1][1]-t[0][1],t[1][2]-t[0][2]],v=[t[2][0]-t[0][0],t[2][1]-t[0][1],t[2][2]-t[0][2]];G.ai+=Math.hypot(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])/2});
+  return RCACHE.set(key,G),G}
+function roofTris(r){const G=roofGeo(r);if(G.tris)return G.tris;const out=[];if(!window.THREE)return out;
+  G.faces.forEach(f=>{const ring=f.ring,holes=f.holes,all=ring.concat(...holes);const ix=THREE.ShapeUtils.triangulateShape(ring.map(p=>new THREE.Vector2(p[0],p[1])),holes.map(h=>h.map(p=>new THREE.Vector2(p[0],p[1]))));
+    ix.forEach(t=>out.push(t.map(k=>{const p=all[k];return[p[0],p[1],f.pl?zPl(f.pl,r.hA,p):r.hA]})))});return out}
+/* --- nombres --- */
+function roofType(r){if(r.forma==='cupula')return'Cúpula';if(r.forma==='boveda')return'Bóveda';if(r.forma==='estadio')return'Anillo (estadio)';
+  const n=r.pts.length,k=r.plana?0:r.edges.filter(e=>!e.g&&e.p>0).length;if(!k)return'Plana';if(n===4)return k+(k===1?' agua':' aguas');if(n>=24&&k===n)return'Circular (cono)';return k+' aguas'}
+function roofPendT(r){if(r.forma==='cupula'||r.forma==='boveda')return'flecha '+f2(r.rise)+' m';if(r.forma==='estadio')return fc(r.pend)+' %';if(r.plana)return'0 %';const ps=[...new Set(r.edges.filter(e=>!e.g&&e.p>0).map(e=>e.p))];return ps.length===1?fc(ps[0])+' %':ps.length?'varias':'0 %'}
+function roofAngT(r){if(r.forma!=='poligono'&&r.forma!=='estadio')return'—';const p=r.forma==='estadio'?r.pend:(r.plana?0:Math.max(0,...r.edges.filter(e=>!e.g).map(e=>e.p||0)));return f2(deg(Math.atan(p/100))).replace('.00','')+'°'}
+/* --- crear --- */
+function newRoofBase(o){return Object.assign({id:uid(),piso:view.piso,hA:2.6,mat:'',nota:''},o)}
+function polyRoof(pts,hA,p,preset){pts=toCCW(pts);const r=newRoofBase({forma:'poligono',pts:pts.map(q=>[r2(q[0]),r2(q[1])]),edges:pts.map(()=>({p:p??30,g:false})),hA});if(preset)setPreset(r,preset);return r}
+function setPreset(r,t){if(r.forma!=='poligono')return;const n=r.pts.length,p=Math.max(...r.edges.map(e=>e.p||0),30);r.plana=t==='plana';if(t==='plana')return;
+  if(t==='todas'||n!==4){r.edges.forEach(e=>{e.g=false;e.p=e.p||p});return}
+  const Ls=r.pts.map((a,i)=>len(sub(r.pts[(i+1)%n],a))),long=Ls[0]+Ls[2]>=Ls[1]+Ls[3]?0:1;
+  r.edges.forEach((e,i)=>{e.p=e.p||p;e.g=t==='dos'?(i%2!==long):t==='una'?(i!==long):false})}
+function rotateFall(r){if(r.forma!=='poligono'||r.pts.length!==4)return;const s=r.edges.map(e=>!e.g);const k=s.filter(Boolean).length;if(k===2){r.edges.forEach(e=>{e.g=!e.g})}else if(k===1){const i=s.indexOf(true);r.edges.forEach((e,j)=>{e.g=j!==(i+1)%4})}}
+function roofOverSpace(s){const g=geom(s);if(!g.closed)return null;const out=toCCW(g.segs.map(sg=>toW(s,sg.oa)));const pts=offsetPoly(out,.5);return polyRoof(pts,r2((s.npt||0)+s.h),30,pts.length===4?'dos':'todas')}
+function roofOverZone(z){const g=zoneGeom(z);if(g.pts.length<3)return null;const pts=offsetPoly(toCCW(g.pts),.65);return polyRoof(pts,r2((z.npt||0)+z.h),30,pts.length===4?'dos':'todas')}
+function defaultHA(piso,rect){let h=0;P.spaces.filter(s=>s.piso===piso).forEach(s=>{const g=geom(s);if(!g.closed)return;const c=toW(s,g.cen);if(!rect||inPoly(c,rect))h=Math.max(h,(s.npt||0)+s.h)});return r2(h||2.6)}
+/* convierte cubiertas del formato anterior */
+function convertRoof(r){if(r.forma)return r;const pts=elCorners({x:r.x,y:r.y,w:r.w,d:r.d,rot:r.rot||0});const p=r.pend||0;let edges=pts.map(()=>({p,g:false}));
+  if(r.tipo==='una'){const i={S:0,E:1,N:2,O:3}[r.cae]??0;edges=edges.map((e,j)=>({p,g:j!==i}))}
+  else if(r.tipo==='dos'){const sl=r.dir==='y'?[1,3]:[0,2];edges=edges.map((e,j)=>({p,g:!sl.includes(j)}))}
+  return{id:r.id,piso:r.piso||1,forma:'poligono',pts:pts.map(q=>[r2(q[0]),r2(q[1])]),edges,hA:r.hA,plana:r.tipo==='plana',mat:r.mat||'',nota:r.nota||''}}
 function migrateRoofs(p){if(!p)return;roofsOf(p);(p.spaces||[]).forEach(s=>{const r=s.roof;if(!r||!r.type||r.type==='ninguna'||!s.walls||!s.walls.length)return;
   const g=geom(s);let xs=[],ys=[];g.segs.forEach(sg=>[sg.a,sg.b,sg.oa,sg.ob].forEach(q=>{xs.push(q[0]);ys.push(q[1])}));const v=r.vuelo||0,x0=Math.min(...xs)-v,x1=Math.max(...xs)+v,y0=Math.min(...ys)-v,y1=Math.max(...ys)+v;
   const c=toW(s,[(x0+x1)/2,(y0+y1)/2]),w=x1-x0,d=y1-y0,tipo={plana:'plana',una:'una',dos:'dos'}[r.type]||'dos';
-  const nr={id:uid(),piso:s.piso,x:r2(c[0]),y:r2(c[1]),w:r2(w),d:r2(d),rot:s.rot||0,tipo,pend:0,hA:r2((s.npt||0)+(r.hA||s.h)),dir:r.dir==='NS'?'y':'x',cae:['S','N','E','O'].includes(r.dir)?r.dir:'S',mat:r.mat||'',nota:''};
-  const run=roofRun(nr);nr.pend=run>0?Math.round(((r.hC||r.hA)-(r.hA))/run*1000)/10:0;p.roofs.push(nr);s.roof.type='ninguna'})}
-function roofOverSpace(s){const g=geom(s);if(!g.segs.length)return null;let xs=[],ys=[];g.segs.forEach(sg=>[sg.oa,sg.ob,sg.a,sg.b].forEach(q=>{xs.push(q[0]);ys.push(q[1])}));const v=.5,x0=Math.min(...xs)-v,x1=Math.max(...xs)+v,y0=Math.min(...ys)-v,y1=Math.max(...ys)+v;
-  const c=toW(s,[(x0+x1)/2,(y0+y1)/2]),w=r2(x1-x0),d=r2(y1-y0);return newRoof({piso:s.piso,x:r2(c[0]),y:r2(c[1]),w,d,rot:s.rot||0,hA:r2((s.npt||0)+s.h),dir:w>=d?'x':'y'})}
-function defaultHA(piso,rect){let h=0;P.spaces.filter(s=>s.piso===piso).forEach(s=>{const g=geom(s);if(!g.closed)return;const c=toW(s,g.cen);if(!rect||inPoly(c,rect))h=Math.max(h,(s.npt||0)+s.h)});return r2(h||2.6)}
+  const old={id:uid(),piso:s.piso,x:c[0],y:c[1],w,d,rot:s.rot||0,tipo,hA:r2((s.npt||0)+(r.hA||s.h)),dir:r.dir==='NS'?'y':'x',cae:['S','N','E','O'].includes(r.dir)?r.dir:'S',mat:r.mat||''};
+  const run=tipo==='una'?((old.cae==='S'||old.cae==='N')?d:w):tipo==='dos'?(old.dir==='x'?d/2:w/2):0;old.pend=run>0?Math.round(((r.hC||r.hA)-r.hA)/run*1000)/10:0;p.roofs.push(old);s.roof.type='ninguna'});
+  p.roofs=p.roofs.map(convertRoof)}
+/* --- dibujo en planta --- */
+function arrowDL(dl,a,b,st,ly){dl.push(L_(a,b,st,ly));const u=unit(sub(b,a)),k=Math.min(.22,len(sub(b,a))*.35);dl.push(L_(b,add(b,mul(add(mul(u,-1),mul(perp(u),.45)),k)),st,ly),L_(b,add(b,mul(add(mul(u,-1),mul(perp(u),-.45)),k)),st,ly))}
+function roofPlanDL(dl,r,isSel,code,roofPlan){const G=roofGeo(r),ly='CUBIERTA',st=isSel?'sel':(roofPlan?'ink':'roof'),st2=isSel?'sel':(roofPlan?'thin':'roof');
+  dl.push({k:'poly',pts:G.outline,closed:1,fill:null,st,ly});if(G.inner)dl.push({k:'poly',pts:G.inner,closed:1,fill:null,st,ly});
+  G.lines.forEach(([a,b,k])=>dl.push(L_(a,b,k==='aux'?(roofPlan?'dash':'roof'):st2,ly)));
+  G.arrows.forEach(x=>{arrowDL(dl,x.a,x.b,roofPlan?'dim':'roof',ly);if(x.t)txt(dl,x.a,x.t,roofPlan?2:1.8,{st:roofPlan?'dim':'roof',ly,dy:1,font:'num'})});
+  const c=r.forma==='poligono'?centroid(r.pts):[r.cx,r.cy],bb=bboxPts(G.outline);
+  const lp=roofPlan?c:[c[0],bb.y0+Math.min(.45,(bb.y1-bb.y0)*.12)];txt(dl,lp,code+' · '+roofType(r)+(r.mat?' · '+r.mat:''),roofPlan?2.6:2,{st:roofPlan?'ink':'roof',ly,bold:1,dy:roofPlan?-3.2:0});
+  if(roofPlan){txt(dl,c,'alero +'+f2(r.hA)+(G.top>r.hA+.005?' · cumbrera +'+f2(G.top):''),1.9,{st:'ink2',ly,dy:-7,font:'num'});
+    if(r.forma==='poligono'&&r.pts.length<=12)r.pts.forEach((a,i)=>{const b=r.pts[(i+1)%r.pts.length],d=unit(sub(b,a));dimDL(dl,a,b,[d[1]*.55,-d[0]*.55],f2(len(sub(b,a))),{ly:'COTAS'})});
+    else{dimDL(dl,[bb.x0,bb.y0],[bb.x1,bb.y0],[0,-.6],f2(bb.x1-bb.x0),{ly:'COTAS'});dimDL(dl,[bb.x1,bb.y0],[bb.x1,bb.y1],[.6,0],f2(bb.y1-bb.y0),{ly:'COTAS'})}}
+  if(isSel&&r.forma==='poligono'&&sel.edge!=null&&r.pts[sel.edge]){const a=r.pts[sel.edge],b=r.pts[(sel.edge+1)%r.pts.length];dl.push({k:'line',a,b,st:'ghost',ly:'X'})}}
+function roofsDL(dl,piso,opt){if(!(view.roofs||opt.print||view.tool==='cub'))return;const codes=roofCodes(),interactive=!opt.print;
+  (P.roofs||[]).filter(r=>(r.piso||1)===piso).forEach(r=>roofPlanDL(dl,r,interactive&&sel.t==='roof'&&sel.rid===r.id,codes[r.id],!!opt.roofPlan))}
+function wallsOutlineDL(dl,piso){P.spaces.filter(s=>s.piso===piso).forEach(s=>{const g=geom(s);g.segs.forEach(sg=>dl.push(L_(toW(s,sg.oa),toW(s,sg.ob),'dash','MUROS')))})}
 function hitRoof(p,inside){const tol=10/view.scale;const rs=(P.roofs||[]).filter(r=>(r.piso||1)===view.piso);
-  for(let i=rs.length-1;i>=0;i--){const r=rs[i],c=elCorners(r);for(let k=0;k<4;k++){const a=c[k],b=c[(k+1)%4],d=sub(b,a),L=len(d),u=mul(d,1/L),t=clamp((p[0]-a[0])*u[0]+(p[1]-a[1])*u[1],0,L);if(len(sub(p,add(a,mul(u,t))))<tol)return{t:'roof',rid:r.id}}}
-  if(inside)for(let i=rs.length-1;i>=0;i--){if(inPoly(p,elCorners(rs[i])))return{t:'roof',rid:rs[i].id}}
-  return null}
-function inspRoof(){const r=curRoof(),code=roofCodes()[r.id],run=roofRun(r);
-  return `<div><span class="eyebrow">Cubierta ${code} · piso ${r.piso||1}</span><h2>${RTN(r.tipo)}${r.tipo!=='plana'?' · '+fc(r.pend)+' %':''}</h2></div>
-  <div class="stats"><div><small>Área planta</small><b>${f2(r.w*r.d)}</b></div><div><small>Área inclinada</small><b>${f2(roofAreaInc(r))}</b></div><div><small>Ángulo</small><b>${r.tipo==='plana'?'0':f2(roofAng(r)).replace('.00','')}°</b></div></div>
-  <div class="sec"><h3>Forma</h3>
-    <div class="grid2">${SL('Tipo','rf','tipo',r.tipo,RTYPES)}${r.tipo==='una'?SL('Cae hacia','rf','cae',r.cae,[['S','Abajo ↓'],['N','Arriba ↑'],['E','Derecha →'],['O','Izquierda ←']]):r.tipo==='dos'?SL('Cumbrera','rf','dir',r.dir,[['x','A lo largo del ancho'],['y','A lo largo del fondo']]):'<span></span>'}</div>
-    ${r.tipo!=='plana'?`<div class="grid3">${F('Pendiente (%)','rf','pend',r.pend)}${F('Altura alero','rf','hA',r.hA)}<label class="fld"><span>Altura cumbrera</span><input id="f-rfc-top" data-o="rfc" data-k="top" data-t="num" inputmode="decimal" value="${f2(roofTop(r))}"></label></div>`:`<div class="grid3">${F('Altura (m)','rf','hA',r.hA)}</div>`}
-    <p class="hint">Alturas desde el nivel ±0.00. Si cambias la altura de cumbrera, la pendiente se recalcula sola.</p>
-    <div class="grid3">${F('Ancho (m)','rf','w',r.w)}${F('Fondo (m)','rf','d',r.d)}${F('Giro (°)','rf','rot',r.rot)}</div>
-    <div class="grid3">${F('X (m)','rf','x',r.x)}${F('Y (m)','rf','y',r.y)}${F('Piso n.º','rf','piso',r.piso||1,'int')}</div>
-    ${F('Material','rf','mat',r.mat,'text','placeholder="Teja de barro, fibrocemento, zinc, losa…"')}
-    ${TA('Notas / estado','rf','nota',r.nota)}
-  </div>
-  <p class="hint">Con el lápiz: arrastra la cubierta para moverla, las esquinas para cambiar su tamaño y el círculo para girarla.</p>
-  <div class="sec">${delConfirm('delRoof','Eliminar cubierta')}</div>`}
+  for(let i=rs.length-1;i>=0;i--){const c=roofOutline(rs[i]);for(let k=0;k<c.length;k++){const a=c[k],b=c[(k+1)%c.length],d=sub(b,a),L=len(d);if(L<1e-6)continue;const u=mul(d,1/L),t=clamp((p[0]-a[0])*u[0]+(p[1]-a[1])*u[1],0,L);if(len(sub(p,add(a,mul(u,t))))<tol)return{t:'roof',rid:rs[i].id}}}
+  if(inside)for(let i=rs.length-1;i>=0;i--){if(inPoly(p,roofOutline(rs[i])))return{t:'roof',rid:rs[i].id}}return null}
+/* --- manijas y arrastres --- */
+function roofHandles(r){const H=[];if(r.forma==='poligono'){const pts=r.pts,n=pts.length;
+    if(n<=24){pts.forEach((p,i)=>H.push({k:'rv',i,p}));pts.forEach((p,i)=>H.push({k:'re',i,p:mul(add(p,pts[(i+1)%n]),.5)}))}
+    else{const b=bboxPts(pts);H.push({k:'rsx',p:[b.x1,(b.y0+b.y1)/2]},{k:'rsy',p:[(b.x0+b.x1)/2,b.y1]})}
+    const b=bboxPts(pts),c=centroid(pts);H.push({k:'rrot',p:[c[0],b.y1+Math.max(.5,34/view.scale)]})}
+  else{H.push({k:'psx',p:RL(r,r.rx,0)},{k:'psy',p:RL(r,0,r.ry)},{k:'rrot',p:RL(r,0,r.ry+Math.max(.5,34/view.scale))})}return H}
+function roofDragStart(h,p){const r=curRoof();const base={obj:r,pts0:r.pts?r.pts.map(q=>q.slice()):null,c0:r.forma==='poligono'?centroid(r.pts):[r.cx,r.cy],rot0:r.rot||0,rx0:r.rx,ry0:r.ry};return startDrag(h.k,p,Object.assign(base,{i:h.i}))}
+function roofDragApply(d,q){const r=d.obj,dl=sub(q,d.p0);
+  switch(d.kind){
+    case 'roof':{if(r.forma==='poligono'){let sh=[r5(dl[0]),r5(dl[1])];const tol=SNAPPX/view.scale,vs=floorVerts();let best=null,bd=tol;d.pts0.forEach(c=>{const m=add(c,sh);vs.forEach(v=>{const dd=len(sub(v,m));if(dd<bd){bd=dd;best=sub(v,m)}})});if(best)sh=add(sh,best);r.pts=d.pts0.map(c=>[r2(c[0]+sh[0]),r2(c[1]+sh[1])]);live={p:q,t:best?'Esquina ajustada':'Mover cubierta'}}
+      else{r.cx=r2(d.c0[0]+r5(dl[0]));r.cy=r2(d.c0[1]+r5(dl[1]));live={p:q,t:'Mover cubierta'}}return true}
+    case 'rv':{const n=d.pts0.length,sn=snapPt(q);let v=sn.p;if(!sn.v){const t=8/view.scale;[d.pts0[(d.i-1+n)%n],d.pts0[(d.i+1)%n]].forEach(nb=>{if(Math.abs(v[0]-nb[0])<t)v[0]=nb[0];if(Math.abs(v[1]-nb[1])<t)v[1]=nb[1]})}
+      const pts=d.pts0.map(c=>c.slice());pts[d.i]=[r2(v[0]),r2(v[1])];r.pts=pts;live={p:q,t:f2(len(sub(pts[d.i],pts[(d.i-1+n)%n])))+' · '+f2(len(sub(pts[(d.i+1)%n],pts[d.i])))};return true}
+    case 're':{const n=d.pts0.length,i=d.i,a=d.pts0[i],b=d.pts0[(i+1)%n],dd=unit(sub(b,a)),out=[dd[1],-dd[0]],t=r2(dl[0]*out[0]+dl[1]*out[1]);const A=add(a,mul(out,t)),pa=d.pts0[(i-1+n)%n],nb=d.pts0[(i+2)%n];
+      const na=lineX2(pa,sub(a,pa),A,dd)||A,nbp=lineX2(nb,sub(b,nb),A,dd)||add(b,mul(out,t));const pts=d.pts0.map(c=>c.slice());pts[i]=[r2(na[0]),r2(na[1])];pts[(i+1)%n]=[r2(nbp[0]),r2(nbp[1])];r.pts=pts;live={p:q,t:'Alero '+(t>=0?'+':'')+f2(t)+' m · lado '+f2(len(sub(pts[(i+1)%n],pts[i])))};return true}
+    case 'rrot':{const c=d.c0,a0=Math.atan2(d.p0[1]-c[1],d.p0[0]-c[0]),a1=Math.atan2(q[1]-c[1],q[0]-c[0]);let da=deg(a1-a0);const tot=d.rot0+da,rr=Math.round(tot/90)*90;da=(Math.abs(tot-rr)<4?rr:Math.round(tot/5)*5)-d.rot0;
+      if(r.forma==='poligono'){const cs=Math.cos(rad(da)),sn=Math.sin(rad(da));r.pts=d.pts0.map(p=>{const x=p[0]-c[0],y=p[1]-c[1];return[r2(c[0]+x*cs-y*sn),r2(c[1]+x*sn+y*cs)]});live={p:q,t:f2(da).replace('.00','')+'°'}}else{r.rot=normA(d.rot0+da);live={p:q,t:f2(r.rot).replace('.00','')+'°'}}return true}
+    case 'rsx':case 'rsy':{const k=d.kind==='rsx'?0:1,c=d.c0,f=Math.max(.1,(q[k]-c[k])/((d.p0[k]-c[k])||1));r.pts=d.pts0.map(p=>{const o=p.slice();o[k]=r2(c[k]+(p[k]-c[k])*f);return o});const b=bboxPts(r.pts);live={p:q,t:f2(b.x1-b.x0)+' × '+f2(b.y1-b.y0)};return true}
+    case 'psx':case 'psy':{const c=Math.cos(rad(-(r.rot||0))),s=Math.sin(rad(-(r.rot||0))),x=q[0]-r.cx,y=q[1]-r.cy,lx=x*c-y*s,ly=x*s+y*c;if(d.kind==='psx')r.rx=Math.max(.3,r2(Math.abs(lx)));else r.ry=Math.max(.3,r2(Math.abs(ly)));live={p:q,t:f2(2*r.rx)+' × '+f2(2*r.ry)};return true}
+  }return false}
+/* --- creación con el lápiz --- */
+let rdraft=null;
+function roofToolDown(p){const hr=hitRoof(p,true);const f=view.roofForm||'rect';
+  if(f==='libre'){const sp=snapPt(p);return{kind:'rpt',A:sp.p,p0:p,moved:false}}
+  if(hr&&!rdraft){sel=hr;const r=curRoof();return roofDragStart({k:'roof'},p)}
+  const sp=snapPt(p);if(f==='regular'||f==='circ'||f==='cupula')return{kind:'newrad',C:sp.p,p0:p,snap:snapshot(),moved:false};
+  return{kind:'newroof',A:sp.p,p0:p,snap:snapshot(),moved:false}}
+function roofToolMove(d,q){if(d.kind==='newroof'){d.B=snapPt(q).p;live={p:q,t:f2(Math.abs(d.B[0]-d.A[0]))+' × '+f2(Math.abs(d.B[1]-d.A[1]))}}
+  if(d.kind==='newrad'){d.R=r2(len(sub(snapPt(q).p,d.C)));live={p:q,t:'radio '+f2(d.R)}}
+  if(d.kind==='rpt'){d.B=snapPt(q).p}}
+function roofDraftPreview(d){const f=view.roofForm||'rect';if(d&&d.kind==='newroof'&&d.B){const A=d.A,B=d.B,x0=Math.min(A[0],B[0]),x1=Math.max(A[0],B[0]),y0=Math.min(A[1],B[1]),y1=Math.max(A[1],B[1]);
+    if(f==='estadio'){const rx=(x1-x0)/2,ry=(y1-y0)/2,c=[(x0+x1)/2,(y0+y1)/2],rot=ry>rx?90:0;return stadiumPts(Math.max(rx,ry),Math.min(rx,ry)).map(p=>RL({cx:c[0],cy:c[1],rot},...p))}
+    return[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]}
+  if(d&&d.kind==='newrad'&&d.R)return regularPts(d.C,d.R,f==='regular'?(view.roofSides||6):40,f==='regular'?Math.PI/2:0);
+  if(rdraft&&rdraft.length){return rdraft.concat(d&&d.B?[d.B]:[])}return null}
+function roofToolUp(d){let r=null;const f=view.roofForm||'rect';
+  if(d.kind==='rpt'){const pt=d.B||d.A;if(!rdraft)rdraft=[];if(rdraft.length>=3&&len(sub(pt,rdraft[0]))<16/view.scale){r=polyRoof(rdraft,defaultHA(view.piso,rdraft),30,rdraft.length===4?'dos':'todas');rdraft=null}else rdraft.push(pt);
+    if(!r){renderAll();return null}}
+  else if(d.kind==='newroof'&&d.moved&&d.B){const A=d.A,B=d.B,x0=Math.min(A[0],B[0]),x1=Math.max(A[0],B[0]),y0=Math.min(A[1],B[1]),y1=Math.max(A[1],B[1]),w=x1-x0,dd=y1-y0;if(w<.3||dd<.3)return null;const rect=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],hA=defaultHA(view.piso,rect),c=[r2((x0+x1)/2),r2((y0+y1)/2)];
+    if(f==='boveda')r=newRoofBase({forma:'boveda',cx:c[0],cy:c[1],rx:r2(w/2),ry:r2(dd/2),rot:0,rise:r2(Math.min(w,dd)*.2),hA});
+    else if(f==='estadio'){const rot=dd>w?90:0,rx=r2(Math.max(w,dd)/2),ry=r2(Math.min(w,dd)/2);r=newRoofBase({forma:'estadio',cx:c[0],cy:c[1],rx,ry,rot,ancho:r2(Math.max(1,ry*.4)),pend:10,caida:'adentro',hA})}
+    else r=polyRoof(rect,hA,30,'dos')}
+  else if(d.kind==='newrad'&&d.moved&&d.R>=.3){const hA=defaultHA(view.piso,null);if(f==='cupula')r=newRoofBase({forma:'cupula',cx:r2(d.C[0]),cy:r2(d.C[1]),rx:d.R,ry:d.R,rot:0,rise:r2(d.R*.5),hA});else r=polyRoof(regularPts(d.C,d.R,f==='regular'?(view.roofSides||6):32,f==='regular'?Math.PI/2:0),hA,f==='circ'?45:30,'todas')}
+  else if(!d.moved){const s=P.spaces.find(z=>z.piso===view.piso&&geom(z).closed&&inPoly(toL(z,d.p0),geom(z).P));if(s)r=roofOverSpace(s);else{const hz=hitZone(d.p0);if(hz)r=roofOverZone((P.zones||[]).find(z=>z.id===hz.zid))}
+    if(!r){toast(f==='rect'?'Arrastra de esquina a esquina, o toca dentro de un espacio':RFORMS.find(x=>x[0]===f)[2]);return null}}
+  if(!r)return null;roofsOf(P).push(r);sel={t:'roof',rid:r.id};return r}
+function renderRoofPal(){const f=view.roofForm||'rect',svg=k=>{const s={rect:'<rect x="7" y="11" width="30" height="22" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 22h30M7 11l8 11-8 11M37 11l-8 11 8 11" fill="none" stroke="currentColor"/>',libre:'<path d="M6 12l14-4 18 6-4 12 4 8-20 4-8-10z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 12l12 11 16-1M18 23l-6 14" fill="none" stroke="currentColor"/>',regular:'<path d="M22 6l14 8v16l-14 8-14-8V14z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M22 6v16M36 14l-14 8M36 30l-14-8M22 38V22M8 30l14-8M8 14l14 8" stroke="currentColor"/>',circ:'<circle cx="22" cy="22" r="15" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M22 7v30M7 22h30M11 11l22 22M33 11L11 33" stroke="currentColor" stroke-width=".8"/>',cupula:'<circle cx="22" cy="22" r="15" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="22" cy="22" r="9" fill="none" stroke="currentColor" stroke-dasharray="2 2"/><circle cx="22" cy="22" r="4" fill="none" stroke="currentColor" stroke-dasharray="2 2"/>',boveda:'<rect x="7" y="11" width="30" height="22" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 22h30" stroke="currentColor"/><path d="M7 16h30M7 28h30" stroke="currentColor" stroke-dasharray="2 2"/>',estadio:'<rect x="4" y="9" width="36" height="26" rx="13" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="15" width="22" height="14" rx="7" fill="none" stroke="currentColor"/>'}[k];return`<svg viewBox="0 0 44 44" width="44" height="44">${s}</svg>`};
+  $('#roofpal').innerHTML='<p>Forma de la cubierta. Si tocas dentro de un espacio, se cubre con alero de 0.50 m.</p><div class="palgrid">'+RFORMS.map(([k,n])=>`<button data-rf="${k}" aria-pressed="${f===k}">${svg(k)}<span>${n}</span></button>`).join('')+'</div>'+
+   (f==='regular'?`<div class="row-btns" style="align-items:center;margin-top:6px"><span class="hint">Lados:</span><button class="btn sm" data-rs="-1">−</button><b class="num" style="font:600 15px var(--f-num)">${view.roofSides||6}</b><button class="btn sm" data-rs="1">+</button></div>`:'')}
+function inspRoof(){const r=curRoof(),code=roofCodes()[r.id],G=roofGeo(r);let h=`<div><span class="eyebrow">Cubierta ${code} · piso ${r.piso||1}</span><h2>${roofType(r)} · ${roofPendT(r)}</h2></div>
+  <div class="stats"><div><small>Área planta</small><b>${f2(G.ap)}</b></div><div><small>Área inclinada</small><b>${f2(G.ai)}</b></div><div><small>Cumbrera</small><b>${f2(G.top)}</b></div></div><div class="sec"><h3>Forma</h3>`;
+  if(r.forma==='poligono'){h+=`<div class="grid3">${F('Altura alero','rf','hA',r.hA)}<label class="fld"><span>Pendiente general %</span><input id="f-rfall" data-o="rfall" data-k="p" data-t="num" inputmode="decimal" value="${(r.edges.find(e=>!e.g)||{p:30}).p}"></label>${SL('Plana','rf','plana',r.plana?'1':'0',[['0','No'],['1','Sí']])}</div>
+    <p class="hint">Cada lado es un agua o un hastial. Toca el punto del medio de un lado para editarlo con el lápiz, o arrástralo para estirar esa agua.</p>
+    ${r.pts.length<=24?`<div class="list">${r.edges.map((e,i)=>`<div style="display:grid;grid-template-columns:56px 1fr 1fr;gap:6px;align-items:end;padding:6px 8px;border-bottom:1px solid var(--line)"><span class="code" style="font:500 13px var(--f-num);color:var(--dim)">L${i+1}<br><small style="color:var(--ink2)">${f2(len(sub(r.pts[(i+1)%r.pts.length],r.pts[i])))}</small></span>${SL('Tipo','redge:'+i,'g',e.g?'1':'0',[['0','En agua'],['1','Hastial']])}${e.g?'<span></span>':F('Pendiente %','redge:'+i,'p',e.p)}</div>`).join('')}</div>`:''}`}
+  if(r.forma==='cupula'||r.forma==='boveda')h+=`<div class="grid3">${F('Altura arranque','rf','hA',r.hA)}${F('Flecha (alto)','rf','rise',r.rise)}${F('Giro (°)','rf','rot',r.rot)}</div><div class="grid2"><label class="fld"><span>${r.forma==='cupula'?'Diámetro X':'Largo'}</span><input id="f-rfv-w" data-o="rfv" data-k="w" data-t="num" inputmode="decimal" value="${f2(2*r.rx)}"></label><label class="fld"><span>${r.forma==='cupula'?'Diámetro Y':'Ancho'}</span><input id="f-rfv-d" data-o="rfv" data-k="d" data-t="num" inputmode="decimal" value="${f2(2*r.ry)}"></label></div>`;
+  if(r.forma==='estadio')h+=`<div class="grid3">${F('Altura alero','rf','hA',r.hA)}${F('Ancho del anillo','rf','ancho',r.ancho)}${F('Pendiente %','rf','pend',r.pend)}</div><div class="grid3">${SL('El agua cae','rf','caida',r.caida,[['adentro','Hacia adentro'],['afuera','Hacia afuera']])}<label class="fld"><span>Largo total</span><input id="f-rfv-w" data-o="rfv" data-k="w" data-t="num" inputmode="decimal" value="${f2(2*r.rx)}"></label><label class="fld"><span>Ancho total</span><input id="f-rfv-d" data-o="rfv" data-k="d" data-t="num" inputmode="decimal" value="${f2(2*r.ry)}"></label></div>${F('Giro (°)','rf','rot',r.rot)}`;
+  h+=`<div class="grid2">${F('Piso n.º','rf','piso',r.piso||1,'int')}${F('Material','rf','mat',r.mat,'text','placeholder="Teja de barro, fibrocemento, zinc, losa…"')}</div>${TA('Notas / estado','rf','nota',r.nota)}</div>
+  <p class="hint">Con el lápiz: arrastra la cubierta para moverla, los puntos de las esquinas para cambiar su forma y el círculo para girarla.</p><div class="sec">${delConfirm('delRoof','Eliminar cubierta')}</div>`;return h}
 
 /* ============ interacción con lápiz ============ */
 const curOp=()=>{const w=curWall();return w&&w.openings.find(o=>o.id===sel.oid)};
@@ -739,13 +843,16 @@ function setTool(t){
   if(view.pick)view.pick=null;
   if(view.tool==='muro'&&t!=='muro')endChain();
   if(t==='el'&&view.tool==='el'){$('#elpal').hidden=!$('#elpal').hidden;return}
+  if(t==='cub'&&view.tool==='cub'){$('#roofpal').hidden=!$('#roofpal').hidden;if(!$('#roofpal').hidden)renderRoofPal();return}
+  if(t!=='cub')rdraft=null;$('#roofpal').hidden=t!=='cub';if(t==='cub')renderRoofPal();
   view.tool=t;if(t==='cub'&&!view.roofs){view.roofs=true;$('#tRoof').classList.add('on');$('#tRoof').setAttribute('aria-pressed','true')}renderRail();$('#elpal').hidden=t!=='el';if(t==='el')renderPal();hideQ();
-  const tips={muro:'Dibuja cada muro con el lápiz: toca el punto de inicio y arrastra. Se ajusta a 90° y a las esquinas. Termina en el punto inicial para cerrar.',puerta:'Toca un muro para poner la puerta y arrástrala a su sitio.',ventana:'Toca un muro para poner la ventana y arrástrala a su sitio.',vano:'Toca un muro para poner el vano y arrástralo a su sitio.',pat:'Toca donde está el daño. Luego puedes arrastrarlo.',cub:'Arrastra de una esquina a la otra para dibujar la cubierta, o toca un espacio para cubrirlo con alero de 0.50 m.',el:'Elige el elemento y tócalo en el plano. Después lo arrastras con el lápiz.'};
+  const tips={muro:'Dibuja cada muro con el lápiz: toca el punto de inicio y arrastra. Se ajusta a 90° y a las esquinas. Termina en el punto inicial para cerrar.',puerta:'Toca un muro para poner la puerta y arrástrala a su sitio.',ventana:'Toca un muro para poner la ventana y arrástrala a su sitio.',vano:'Toca un muro para poner el vano y arrástralo a su sitio.',pat:'Toca donde está el daño. Luego puedes arrastrarlo.',cub:'Elige la forma de la cubierta y dibújala con el lápiz. Si tocas dentro de un espacio, se cubre con alero de 0.50 m.',el:'Elige el elemento y tócalo en el plano. Después lo arrastras con el lápiz.'};
   if(tips[t])toast(tips[t]);
   renderChip();buildDL();draw2D();
 }
 function renderPal(){const fam=view.fam||(CAT[view.elType]&&CAT[view.elType].fam)||'estructura';view.fam=fam;const items=Object.entries(CAT).filter(([k,c])=>k!=='patologia'&&(c.fam||'otros')===fam);
   $('#elpal').innerHTML='<div class="famtabs" role="tablist">'+FAMS.map(([k,n])=>`<button data-fam="${k}" aria-selected="${k===fam}">${n}</button>`).join('')+'</div><p>Elige y toca en el plano. Lo que va contra la pared se pega solo al muro.</p><div class="palgrid">'+items.map(([k,c])=>`<button data-el="${k}" aria-pressed="${view.elType===k}">${symSVG(k)}<span>${esc(c.n)}</span></button>`).join('')+'</div>'}
+$('#roofpal').addEventListener('click',e=>{const f=e.target.closest('[data-rf]');if(f){view.roofForm=f.dataset.rf;rdraft=null;renderRoofPal();toast(RFORMS.find(x=>x[0]===view.roofForm)[2]);if(view.roofForm!=='regular')setTimeout(()=>{$('#roofpal').hidden=true},300);return}const s2=e.target.closest('[data-rs]');if(s2){view.roofSides=clamp((view.roofSides||6)+(+s2.dataset.rs),3,24);renderRoofPal()}});
 $('#elpal').addEventListener('click',e=>{const f=e.target.closest('[data-fam]');if(f){view.fam=f.dataset.fam;renderPal();return}const b=e.target.closest('[data-el]');if(!b)return;view.elType=b.dataset.el;view.fam=CAT[view.elType].fam||'otros';renderPal();setTimeout(()=>{$('#elpal').hidden=true},250);toast('Toca en el plano para poner: '+CAT[view.elType].n)});
 
 /* ---- ajustes (snap) ---- */
@@ -794,7 +901,7 @@ function handles(){const H=[];
   if(sel.t==='space'||sel.t==='wall'){const s=curSpace();if(!s)return H;const g=geom(s),pts=g.closed?g.P:g.V;let idx=pts.map((_,i)=>i);
     if(sel.t==='wall'){const i=s.walls.findIndex(w=>w.id===sel.wid);idx=[i,g.closed?(i+1)%pts.length:i+1]}
     idx.forEach(i=>{if(pts[i])H.push({k:'vtx',i,p:toW(s,pts[i])})})}
-  if(sel.t==='roof'){const r=curRoof();if(!r)return H;elCorners(r).forEach((p,i)=>H.push({k:'rc',i,p}));H.push({k:'rrot',p:elLocal(r,0,r.d/2+Math.max(.4,30/view.scale))});return H}
+  if(sel.t==='roof'){const r=curRoof();if(!r)return H;return roofHandles(r)}
   if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(!o)return H;const g=geom(s),sg=g.segs[s.walls.indexOf(w)],m=mul(sg.n,sg.t/2);
     H.push({k:'opA',p:toW(s,add(add(sg.a,mul(sg.d,o.off)),m))},{k:'opB',p:toW(s,add(add(sg.a,mul(sg.d,o.off+o.w)),m))})}
   return H;
@@ -807,6 +914,8 @@ function hitDim(p){if(view.mode!=='planta')return null;const tol=24/view.scale;l
 function snapshot(){return JSON.stringify(P)}
 function startDrag(kind,p0,extra){return Object.assign({kind,p0,snap:snapshot(),moved:false},extra)}
 function dragApply(d,q){
+  if(['roof','rv','re','rrot','rsx','rsy','psx','psy'].includes(d.kind)){roofDragApply(d,q);return}
+  if(['newroof','newrad','rpt'].includes(d.kind)){roofToolMove(d,q);return}
   const dl=sub(q,d.p0);
   switch(d.kind){
     case 'el':{const e=d.obj,raw=add(d.o0,dl),sn=snapEl(e,raw);e.x=r2(sn.p[0]);e.y=r2(sn.p[1]);if(sn.rot!=null)e.rot=sn.rot;live={p:q,t:sn.kind==='esquina'?'En la esquina':sn.kind==='muro'?'Contra el muro':'X '+f2(e.x)+' · Y '+f2(e.y)};break}
@@ -833,10 +942,6 @@ function dragApply(d,q){
       else if(d.edge==='T')h=o0.h+dv;else if(d.edge==='B'){sill=o0.sill+dv;h=o0.h-dv}
       w=Math.max(.1,w);h=Math.max(.1,h);sill=Math.max(0,sill);off=clamp(off,0,Math.max(0,d.L-w));
       Object.assign(o,{off:r2(off),w:r2(w),h:r2(h),sill:r2(sill)});live={p:q,t:f2(o.w)+' × '+f2(o.h)+' · antepecho '+f2(o.sill)};break}
-    case 'roof':{const r=d.obj;let nx=r5(d.o0[0]+dl[0]),ny=r5(d.o0[1]+dl[1]);const tol=SNAPPX/view.scale,vs=floorVerts();let best=null,bd=tol;d.c0.forEach(c=>{const m=add(c,[nx-d.o0[0],ny-d.o0[1]]);vs.forEach(v=>{const dd=len(sub(v,m));if(dd<bd){bd=dd;best=sub(v,m)}})});if(best){nx+=best[0];ny+=best[1]}r.x=r2(nx);r.y=r2(ny);live={p:q,t:best?'Esquina ajustada':'Mover cubierta'};break}
-    case 'rc':{const r=d.obj,sn=snapPt(q),f=d.fixed,v=rotV({rot:-(r.rot||0)},sub(sn.p,f)),w=Math.max(.3,r2(Math.abs(v[0]))),dd=Math.max(.3,r2(Math.abs(v[1])));const vv=[Math.sign(v[0]||1)*w,Math.sign(v[1]||1)*dd],c=add(f,rotV(r,mul(vv,.5)));r.w=w;r.d=dd;r.x=r2(c[0]);r.y=r2(c[1]);live={p:q,t:f2(w)+' × '+f2(dd)};break}
-    case 'rrot':{const r=d.obj,a=deg(Math.atan2(q[1]-r.y,q[0]-r.x))-90,rr=Math.round(a/90)*90;r.rot=normA(Math.abs(a-rr)<6?rr:Math.round(a/5)*5);live={p:q,t:f2(r.rot).replace('.00','')+'°'};break}
-    case 'newroof':{const B=snapPt(q).p,A=d.A,w=r2(Math.abs(B[0]-A[0])),dd=r2(Math.abs(B[1]-A[1]));d.B=B;live={p:q,t:f2(w)+' × '+f2(dd)};break}
     case 'eh':{const w=d.obj;const v=Math.max(.3,r2(d.h0+dl[1]));w[d.key]=v;live={p:q,t:'Altura '+f2(v)};break}
   }
 }
@@ -852,15 +957,14 @@ function toolDown(p,pt){
     if(h){if(h.k==='rot'||h.k==='size')return startDrag(h.k,p,{obj:curEl()});
       if(h.k==='vtx'){const s=curSpace();return startDrag('vtx',p,{obj:s,i:h.i,V0:vertsOf(s),fr:frameOf(s)})}
       if(h.k==='opA'||h.k==='opB')return startDrag(h.k,p,{obj:curOp(),s:curSpace(),w:curWall()})
-      if(h.k==='rc'){const r=curRoof(),c=elCorners(r);return startDrag('rc',p,{obj:r,fixed:c[(h.i+2)%4]})}
-      if(h.k==='rrot')return startDrag('rrot',p,{obj:curRoof()})}
-    if(sel.t==='roof'){const r=curRoof();if(r&&inPoly(p,elCorners(r)))return startDrag('roof',p,{obj:r,o0:[r.x,r.y],c0:elCorners(r),reselect:true})}
+      if(sel.t==='roof'&&['rv','re','rrot','rsx','rsy','psx','psy'].includes(h.k))return roofDragStart(h,p)}
+    if(sel.t==='roof'){const r=curRoof();if(r&&inPoly(p,roofOutline(r))){const d=roofDragStart({k:'roof'},p);d.reselect=true;return d}}
     const dh=hitDim(p);if(dh)return{kind:'tapdim',dh,p0:p,moved:false};
     const hit=hitPlan(p);if(!hit)return null;
     return dragFor(hit,p);
   }
   if(t==='muro')return muroDown(p);
-  if(t==='cub'){const hr=hitRoof(p,true);if(hr){sel=hr;const r=curRoof();return startDrag('roof',p,{obj:r,o0:[r.x,r.y],c0:elCorners(r),sel:hr})}const sp=snapPt(p);return{kind:'newroof',A:sp.p,p0:p,snap:snapshot(),moved:false}}
+  if(t==='cub'){const d=roofToolDown(p);d.snap=d.snap||snapshot();return d}
   if(t==='puerta'||t==='ventana'||t==='vano'){const hit=hitPlan(p);if(hit&&hit.t==='op')return dragFor(hit,p);return placeOp(p,t)}
   if(t==='el'||t==='pat'){const hit=hitPlan(p);if(hit&&hit.t==='el')return dragFor(hit,p);return placeEl(p,t==='pat'?'patologia':view.elType)}
   return null;
@@ -871,7 +975,7 @@ function dragFor(hit,p){
   if(hit.t==='wall'){const s=P.spaces.find(x=>x.id===hit.sid),i=s.walls.findIndex(w=>w.id===hit.wid),g=geom(s),sg=g.segs[i],n=(g.closed?g.P:g.V).length;sel=hit;
     return startDrag('wall',p,{obj:s,i,j:g.closed?(i+1)%n:i+1,V0:vertsOf(s),fr:frameOf(s),nrm:sg.n,sel:hit})}
   if(hit.t==='zone'){sel=hit;return{kind:'tapsel',p0:p,moved:false}}
-  if(hit.t==='roof'){const r=(P.roofs||[]).find(x=>x.id===hit.rid);sel=hit;return startDrag('roof',p,{obj:r,o0:[r.x,r.y],c0:elCorners(r),sel:hit})}
+  if(hit.t==='roof'){sel=hit;return roofDragStart({k:'roof'},p)}
   if(hit.t==='space'){const s=P.spaces.find(x=>x.id===hit.sid);sel=hit;return startDrag('space',p,{obj:s,o0:[s.x,s.y],sel:hit})}
   return null;
 }
@@ -944,11 +1048,9 @@ function endPtr(e){const was=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);if(p
     if(e.type==='pointercancel'){P=JSON.parse(d.snap);fixSel();renderAll();return}
     if(d.kind==='muro'){if(d.moved&&muroUp(d)){undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved()}hover=null;renderAll();return}
     if(d.kind==='tapsel'){renderAll();return}
-    if(d.kind==='newroof'){let r=null;if(d.moved&&d.B){const A=d.A,B=d.B,w=r2(Math.abs(B[0]-A[0])),dd=r2(Math.abs(B[1]-A[1]));if(w>=.3&&dd>=.3){const rect=[[Math.min(A[0],B[0]),Math.min(A[1],B[1])],[Math.max(A[0],B[0]),Math.min(A[1],B[1])],[Math.max(A[0],B[0]),Math.max(A[1],B[1])],[Math.min(A[0],B[0]),Math.max(A[1],B[1])]];r=newRoof({x:r2((A[0]+B[0])/2),y:r2((A[1]+B[1])/2),w,d:dd,dir:w>=dd?'x':'y',hA:defaultHA(view.piso,rect)})}}
-      else{const s=P.spaces.find(z=>z.piso===view.piso&&geom(z).closed&&inPoly(toL(z,d.p0),geom(z).P));if(s)r=roofOverSpace(s)}
-      if(r){roofsOf(P).push(r);sel={t:'roof',rid:r.id};undoS.push(d.snap);redoS=[];saved();toast('Cubierta '+roofCodes()[r.id]+' creada. Elige el tipo y la pendiente arriba.')}
-      else if(!d.moved)toast('Arrastra de esquina a esquina, o toca dentro de un espacio cerrado');
-      live=null;renderAll();return}
+    if(['newroof','newrad','rpt'].includes(d.kind)){const r=roofToolUp(d);live=null;if(r){undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved();toast('Cubierta '+roofCodes()[r.id]+' creada. Toca el punto del medio de un lado para editar esa agua.')}renderAll();return}
+    if(d.kind==='re'&&!d.moved){sel={t:'roof',rid:d.obj.id,edge:d.i};renderAll();return}
+    if(d.kind==='roof'&&!d.moved&&!d.reselect){sel={t:'roof',rid:d.obj.id};renderAll();return}
     if(d.kind==='roof'&&d.reselect&&!d.moved){const h=hitPlan(S2W(e.clientX,e.clientY),true);sel=h||{t:'proj'};renderAll();return}
     if(d.kind==='tapdim'){if(!d.moved){sel={t:'wall',sid:d.dh.sid,wid:d.dh.wid};renderAll();openQ(d.dh,e.clientX,e.clientY)}return}
     if(d.moved||d.created){undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved()}
@@ -980,7 +1082,7 @@ function drawOverlay(tf){
     if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(o){const g=geom(s),sg=g.segs[s.walls.indexOf(w)],A=add(sg.a,mul(sg.d,o.off)),B=add(sg.a,mul(sg.d,o.off+o.w)),N=mul(sg.n,sg.t);
       const q=[A,B,add(B,N),add(A,N)].map(p=>tf(...toW(s,p)));c.beginPath();q.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.fillStyle=COL.accentwash;c.fill();c.strokeStyle=COL.accent;c.lineWidth=2;c.stroke()}}
     if(sel.t==='el'&&view.tool==='sel'){const e=curEl();if(e&&!(CAT[e.type]||{}).marker){const a=tf(e.x,e.y),b=tf(...elLocal(e,0,e.d/2+Math.max(.25,26/view.scale)));c.strokeStyle=COL.accent;c.lineWidth=1.5;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}}
-    handles().forEach(h=>dot(h.p,h.k==='rot'?8:7,h.k==='rot'?COL.accent:COL.panel,COL.accent));
+    handles().forEach(h=>dot(h.p,h.k==='rot'||h.k==='rrot'?8:h.k==='re'?5:7,h.k==='rot'||h.k==='rrot'||h.k==='re'?COL.accent:COL.panel,COL.accent));
     const sgp=drag&&drag.kind==='muro'&&drag.prev?{A:drag.A,sg:drag.prev}:hover;
     if(sgp){const a=tf(...sgp.A),b=tf(...sgp.sg.B);c.strokeStyle=COL.accent;c.lineWidth=Math.max(3,trace.t*view.scale);c.globalAlpha=.55;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.globalAlpha=1;
       if(sgp.sg.guide){const g0=tf(...sgp.sg.guide.from);c.setLineDash([5,5]);c.lineWidth=1;c.beginPath();c.moveTo(g0[0],g0[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
@@ -990,8 +1092,9 @@ function drawOverlay(tf){
   if(view.pick&&view.mode==='planta'){const g=pickPreview();if(g.pts.length>=3){c.beginPath();g.pts.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.closePath();c.fillStyle=COL.accentwash;c.fill()}
     g.refs.forEach(r=>{const a=tf(...toW(r.s,r.sg.a)),b=tf(...toW(r.s,r.sg.b));c.strokeStyle=COL.accent;c.lineWidth=6;c.lineCap='round';c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()});
     c.setLineDash([6,5]);c.lineWidth=2;g.virt.forEach(([a0,b0])=>{const a=tf(...a0),b=tf(...b0);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()});c.setLineDash([])}
-  if(drag&&drag.kind==='newroof'&&drag.B){const a=tf(...drag.A),b=tf(...drag.B);c.setLineDash([7,5]);c.strokeStyle=COL.accent;c.lineWidth=2;c.strokeRect(Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]));c.setLineDash([]);c.fillStyle=COL.accentwash;c.fillRect(Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]))}
-  if(sel.t==='roof'&&view.tool==='sel'){const r=curRoof();if(r){const a=tf(...elLocal(r,0,r.d/2)),b=tf(...elLocal(r,0,r.d/2+Math.max(.4,30/view.scale)));c.strokeStyle=COL.accent;c.lineWidth=1.5;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}}
+  {const pv=view.mode==='planta'&&view.tool==='cub'?roofDraftPreview(drag&&['newroof','newrad','rpt'].includes(drag.kind)?drag:null):null;if(pv&&pv.length>=2){c.beginPath();pv.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});if(!rdraft)c.closePath();c.setLineDash([7,5]);c.strokeStyle=COL.accent;c.lineWidth=2;c.stroke();c.setLineDash([]);if(!rdraft){c.fillStyle=COL.accentwash;c.fill()}}
+   if(rdraft&&view.tool==='cub')rdraft.forEach((q,i)=>dot(q,i?5:7,i?COL.accent:COL.panel,COL.accent))}
+  if(sel.t==='roof'&&view.tool==='sel'&&curRoof()&&curRoof().forma==='poligono'&&sel.edge!=null){const r=curRoof(),a=tf(...r.pts[sel.edge]),b=tf(...r.pts[(sel.edge+1)%r.pts.length]);c.strokeStyle=COL.accent;c.lineWidth=6;c.lineCap='round';c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}
   if(live)label(live.p,live.t);
   c.restore();
 }
@@ -1003,12 +1106,16 @@ function saveZone(){const i=$('#zNameIn'),n=i?i.value.trim():'';if(!n){toast('Es
 function renderChip(){const ch=$('#chip');let h='';if(sel.t!=='space'&&sel.t!=='zone')chipRen=false;
   if(view.mode!=='planta'&&view.mode!=='alzados'){ch.hidden=true;return}
   const cs=chainSpace();
+  if(rdraft&&view.tool==='cub'){h=`<b>Forma libre</b><span class="num">${rdraft.length} puntos</span>${rdraft.length>=3?'<button class="btn sm acc" data-c="rfin">Cerrar cubierta</button>':''}<button class="btn sm" data-c="rundo">Quitar punto</button><button class="btn sm" data-c="rcancel">Cancelar</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(view.pick){const g=pickPreview();h=view.pick.naming?`<span class="num">Nombre:</span><input id="zNameIn" value="${esc(view.pick.name||nextSpaceName())}" aria-label="Nombre del espacio" style="width:180px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="zsave">Guardar</button><button class="btn sm" data-c="zcancel">Cancelar</button>`:`<b>Elige los muros</b><span class="num">${view.pick.ids.length} muros${g.pts.length>=3?' · '+f2(g.area)+' m²':''}</span><button class="btn sm acc" data-c="zdone" ${view.pick.ids.length<2?'disabled':''}>Listo</button><button class="btn sm" data-c="zcancel">Cancelar</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(sel.t==='zone'&&curZone()&&chipRen){const z=curZone();h=`<input id="sRenIn" value="${esc(z.name)}" aria-label="Nombre del espacio" style="width:190px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="srenok">Guardar</button><button class="btn sm" data-c="srencancel">Cancelar</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);h=`<b>${esc(z.name)}</b><span class="num">${f2(g.area)} m² · h ${f2(z.h)}</span><button class="btn sm" data-c="sren">Renombrar</button><button class="btn sm" data-c="zwalls">Muros</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(view.tool==='muro'&&cs&&cs.walls.length){const g=geom(cs);h=`<b>${esc(cs.name)}</b><span class="num">${cs.walls.length} muros · faltan ${f2(g.gap)} m</span>${cs.walls.length>=2?'<button class="btn sm acc" data-c="close">Cerrar</button>':''}<button class="btn sm" data-c="undowall">Quitar último</button><button class="btn sm" data-c="end">Terminar</button>`}
   else if(sel.t==='el'&&curEl()){const e=curEl(),c=CAT[e.type]||CAT.mueble;h=`<b>${esc(c.n)}</b><span class="num">${c.marker?esc(e.pat):(c.circ?'Ø '+f2(e.w):f2(e.w)+'×'+f2(e.d))+' · h '+f2(e.h)}</span>${c.marker?'':'<button class="btn sm" data-c="rot90">Girar 90°</button>'}<button class="btn sm" data-c="dup">Duplicar</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
-  else if(sel.t==='roof'&&curRoof()){const r=curRoof(),code=roofCodes()[r.id];h=`<b>${code}</b>`+RTYPES.map(([k,n])=>`<button class="btn sm${r.tipo===k?' on':''}" data-c="rt" data-v="${k}">${n}</button>`).join('')+(r.tipo!=='plana'?`<button class="btn sm" data-c="rpend">${fc(r.pend)} %</button>`:'')+(r.tipo==='una'||r.tipo==='dos'?'<button class="btn sm" data-c="rdir">Girar caída</button>':'')+'<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>'}
+  else if(sel.t==='roof'&&curRoof()){const r=curRoof(),code=roofCodes()[r.id];
+    if(r.forma==='poligono'&&sel.edge!=null&&r.edges[sel.edge]){const i=sel.edge,e=r.edges[i],Ln=len(sub(r.pts[(i+1)%r.pts.length],r.pts[i]));h=`<b>${code} · lado ${i+1}</b><span class="num">${f2(Ln)} m</span><button class="btn sm${!e.g?' on':''}" data-c="eagua">En agua</button><button class="btn sm${e.g?' on':''}" data-c="egable">Hastial</button>${e.g?'':`<button class="btn sm" data-c="epend">${fc(e.p)} %</button>`}<button class="btn sm" data-c="esplit">Dividir lado</button>${r.pts.length>3?'<button class="btn sm" data-c="edel">Quitar lado</button>':''}<button class="btn sm" data-c="eall">Toda la cubierta</button>`}
+    else if(r.forma==='poligono'){const n=r.pts.length,k=r.plana?0:r.edges.filter(e=>!e.g).length;h=`<b>${code}</b><span class="num">${roofType(r)}</span>`+(n===4?[['plana','Plana'],['una','1 agua'],['dos','2 aguas'],['cuatro','4 aguas']]:[['plana','Plana'],['todas','Todas en agua']]).map(([kk,nn])=>`<button class="btn sm" data-c="rt" data-v="${kk}">${nn}</button>`).join('')+(k?`<button class="btn sm" data-c="rpend">${roofPendT(r)}</button>`:'')+(n===4&&(k===1||k===2)?'<button class="btn sm" data-c="rdir">Girar caída</button>':'')+'<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>'}
+    else{h=`<b>${code}</b><span class="num">${roofType(r)}</span>`+(r.forma==='estadio'?`<button class="btn sm" data-c="rpend">${fc(r.pend)} %</button><button class="btn sm" data-c="rcaida">${r.caida==='afuera'?'Cae hacia afuera':'Cae hacia adentro'}</button><button class="btn sm" data-c="rancho">Anillo ${f2(r.ancho)} m</button>`:`<button class="btn sm" data-c="rrise">Flecha ${f2(r.rise)} m</button>`)+'<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>'}}
   else if(sel.t==='op'&&curOp()){const o=curOp(),code=opCodes()[o.id];h=`<b>${code}</b><span class="num">${f2(o.w)}×${f2(o.h)}${o.sill?' · ant. '+f2(o.sill):''}</span>${o.type==='puerta'?'<button class="btn sm" data-c="hinge">Bisagra</button><button class="btn sm" data-c="swing">'+(o.swing==='ext'?'Abre afuera':'Abre adentro')+'</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w);h=`<b>M${i+1}</b><span class="num">${f2(geom(s).segs[i].L)} m · h ${f2(wh(w,s,'i'))}${wh(w,s,'i')!==wh(w,s,'f')?'→'+f2(wh(w,s,'f')):''}</span><button class="btn sm" data-c="len">Medida</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='space'&&curSpace()&&chipRen){const s=curSpace();h=`<input id="sRenIn" value="${esc(s.name)}" aria-label="Nombre del espacio" style="width:190px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="srenok">Guardar</button><button class="btn sm" data-c="srencancel">Cancelar</button>`}
@@ -1024,7 +1131,14 @@ $('#chip').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(
   if(c==='zcancel'){view.pick=null;renderAll();return}
   if(c==='zdone'){if(view.pick.zid){const z=(P.zones||[]).find(x=>x.id===view.pick.zid);if(z){pushUndo();z.walls=view.pick.ids.slice();saved();sel={t:'zone',zid:z.id}}view.pick=null;renderAll();return}view.pick.naming=true;renderChip();setTimeout(()=>{const i=$('#zNameIn');if(i){i.focus();i.select()}},30);return}
   if(c==='zsave'){saveZone();return}
-  if(c==='rpend'){const r=curRoof(),bb=b.getBoundingClientRect();openQ({v:r.pend,unit:'%',apply:v=>{r.pend=Math.round(v*10)/10}},bb.left+bb.width/2,bb.bottom+60);return}
+  if(['rpend','epend','rrise','rancho'].includes(c)){const r=curRoof(),bb=b.getBoundingClientRect(),i=sel.edge;let cur,unit='%',ap;
+    if(c==='epend'){cur=r.edges[i].p;ap=v=>{r.edges[i].p=Math.round(v*10)/10}}else if(c==='rrise'){cur=r.rise;unit='m';ap=v=>{r.rise=Math.max(.05,r2(v))}}else if(c==='rancho'){cur=r.ancho;unit='m';ap=v=>{r.ancho=Math.max(.2,r2(v))}}
+    else if(r.forma==='estadio'){cur=r.pend;ap=v=>{r.pend=Math.round(v*10)/10}}else{cur=(r.edges.find(e=>!e.g)||{p:30}).p;ap=v=>{r.plana=false;r.edges.forEach(e=>{if(!e.g)e.p=Math.round(v*10)/10})}}
+    openQ({v:cur,unit,apply:ap},bb.left+bb.width/2,bb.bottom+60);return}
+  if(c==='rcancel'){rdraft=null;renderAll();return}
+  if(c==='rundo'){if(rdraft){rdraft.pop();if(!rdraft.length)rdraft=null}renderAll();return}
+  if(c==='rfin'){if(rdraft&&rdraft.length>=3){pushUndo();const r=polyRoof(rdraft,defaultHA(view.piso,rdraft),30,rdraft.length===4?'dos':'todas');rdraft=null;roofsOf(P).push(r);sel={t:'roof',rid:r.id};saved()}renderAll();return}
+  if(c==='eall'){sel={t:'roof',rid:sel.rid};renderAll();return}
   if(c==='rcover'){act('roofSpace');return}
   if(c==='sren'){chipRen=true;renderChip();setTimeout(()=>{const i=$('#sRenIn');if(i){i.focus();i.select()}},30);return}
   if(c==='srencancel'){chipRen=false;renderChip();return}
@@ -1038,7 +1152,11 @@ $('#chip').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(
   if(sel.t==='el'){const e=curEl();if(c==='rot90')e.rot=normA((e.rot||0)+90);if(c==='dup'){const n={...e,id:uid(),x:r2(e.x+Math.max(e.w,.3)+.1)};P.elements.push(n);sel={t:'el',eid:n.id}}if(c==='del'){P.elements=P.elements.filter(x=>x!==e);sel={t:'proj'};toast('Eliminado. ↶ para deshacer')}}
   else if(sel.t==='op'){const w=curWall(),o=curOp();if(c==='hinge')o.hinge=o.hinge==='fin'?'ini':'fin';if(c==='swing')o.swing=o.swing==='ext'?'int':'ext';if(c==='del'){w.openings=w.openings.filter(x=>x!==o);sel={t:'wall',sid:sel.sid,wid:sel.wid};toast('Eliminado. ↶ para deshacer')}}
   else if(sel.t==='wall'&&c==='del'){const s=curSpace();s.walls=s.walls.filter(w=>w.id!==sel.wid);if(s.walls.length<3)s.closed=false;sel={t:'space',sid:s.id};toast('Muro eliminado. ↶ para deshacer')}
-  else if(sel.t==='roof'){const r=curRoof();if(c==='rt')r.tipo=b.dataset.v;if(c==='rdir'){if(r.tipo==='dos')r.dir=r.dir==='x'?'y':'x';else r.cae={S:'O',O:'N',N:'E',E:'S'}[r.cae]||'S'}if(c==='del'){P.roofs=P.roofs.filter(x=>x!==r);sel={t:'proj'};toast('Cubierta eliminada. ↶ para deshacer')}}
+  else if(sel.t==='roof'){const r=curRoof(),i=sel.edge;if(c==='rt')setPreset(r,b.dataset.v==='cuatro'?'todas':b.dataset.v);if(c==='rdir')rotateFall(r);if(c==='rcaida')r.caida=r.caida==='afuera'?'adentro':'afuera';
+    if(c==='eagua'){r.edges[i].g=false;r.plana=false;r.edges[i].p=r.edges[i].p||30}if(c==='egable')r.edges[i].g=true;
+    if(c==='esplit'){const a=r.pts[i],bq=r.pts[(i+1)%r.pts.length];r.pts.splice(i+1,0,[r2((a[0]+bq[0])/2),r2((a[1]+bq[1])/2)]);r.edges.splice(i+1,0,{...r.edges[i]});sel.edge=i+1;toast('Lado dividido: arrastra el punto nuevo')}
+    if(c==='edel'){const n=r.pts.length,a=r.pts[i],bq=r.pts[(i+1)%n],m=[r2((a[0]+bq[0])/2),r2((a[1]+bq[1])/2)];r.pts[i]=m;r.pts.splice((i+1)%n,1);r.edges.splice(i,1);if((i+1)%n===0){}sel={t:'roof',rid:r.id}}
+    if(c==='del'){P.roofs=P.roofs.filter(x=>x!==r);sel={t:'proj'};toast('Cubierta eliminada. ↶ para deshacer')}}
   else if(sel.t==='zone'&&c==='del'){P.zones=P.zones.filter(x=>x.id!==sel.zid);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
   else if(sel.t==='space'&&c==='del'){const s=curSpace();P.spaces=P.spaces.filter(x=>x!==s);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
   saved();renderAll();
@@ -1064,7 +1182,7 @@ $('#qOk').onclick=applyQ;$('#qIn').addEventListener('keydown',e=>{if(e.key==='En
 function setPanel(on){view.panel=on;$('main').classList.toggle('nopanel',!on);$('#bPanel').setAttribute('aria-pressed',on);$('#bPanel').classList.toggle('on',on);lsSet('lev.panel',on?'1':'0');requestAnimationFrame(()=>{if(view.mode==='3d')req3();else if(view.mode!=='cuadro')draw2D()})}
 $('#bPanel').onclick=()=>setPanel(!view.panel);
 document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
-  if(e.key==='Escape'){if(view.pick){view.pick=null;renderAll();return}if(view.tool==='muro')endChain();sel={t:'proj'};renderAll()}
+  if(e.key==='Escape'){if(rdraft){rdraft=null;renderAll();return}if(view.pick){view.pick=null;renderAll();return}if(view.tool==='muro')endChain();sel={t:'proj'};renderAll()}
   const km={v:'sel',m:'muro',p:'puerta',w:'ventana',e:'el',c:'cub'};if(!e.metaKey&&!e.ctrlKey&&km[e.key])setTool(km[e.key]);
   if((e.key==='Delete'||e.key==='Backspace')&&sel.t==='roof'){pushUndo();P.roofs=P.roofs.filter(x=>x.id!==sel.rid);sel={t:'proj'};saved();renderAll()}
   if((e.key==='Delete'||e.key==='Backspace')&&sel.t==='el'){pushUndo();P.elements=P.elements.filter(x=>x.id!==sel.eid);sel={t:'proj'};saved();renderAll()}});
@@ -1196,12 +1314,12 @@ function inspEl(){
   <p class="hint">Arrástralo con el lápiz. El círculo de arriba lo gira y el cuadrito de la esquina cambia su tamaño.</p>
   </div><div class="sec">${delConfirm('delEl','Eliminar elemento')}</div>`;
 }
-function resolveObj(o){if(o==='proj')return P;if(o==='space')return curSpace();if(o==='rf')return curRoof();if(o==='zone')return curZone();if(o==='wall')return curWall();if(o==='el')return curEl();if(o.startsWith('op:')){const w=curWall();return w&&w.openings.find(x=>x.id===o.slice(3))}return null}
+function resolveObj(o){if(o==='proj')return P;if(o==='space')return curSpace();if(o==='rf')return curRoof();if(o.startsWith('redge:')){const r=curRoof();return r&&r.edges[+o.slice(6)]}if(o==='zone')return curZone();if(o==='wall')return curWall();if(o==='el')return curEl();if(o.startsWith('op:')){const w=curWall();return w&&w.openings.find(x=>x.id===o.slice(3))}return null}
 insp.addEventListener('change',e=>{const el=e.target;
   if(el.id==='tAuto'){trace.auto=el.value;return}if(el.id==='mUnit'){trace.unit=el.value;return}
   if(el.id==='tEsp'){trace.t=Math.max(.01,num(el.value,.15));return}
   if(el.id==='tAng'){trace.dir=normA(num(el.value,0));renderInspector();buildDL();draw2D();return}
-  if(el.dataset.o==='rfc'){const r=curRoof(),v=num(el.value,NaN),run=roofRun(r);if(r&&!isNaN(v)&&run>0){pushUndo();r.pend=Math.max(0,Math.round((v-r.hA)/run*1000)/10);saved();renderAll(true)}return}
+  if(el.dataset.o==='rfv'||el.dataset.o==='rfall'){const r=curRoof(),v=num(el.value,NaN);if(r&&!isNaN(v)){pushUndo();if(el.dataset.o==='rfall'){r.plana=false;r.edges.forEach(e=>{if(!e.g)e.p=v})}else if(el.dataset.k==='w')r.rx=Math.max(.3,r2(v/2));else r.ry=Math.max(.3,r2(v/2));saved();renderAll(true)}return}
   if(!el.dataset.o)return;const obj=resolveObj(el.dataset.o);if(!obj)return;const t=el.dataset.t,k=el.dataset.k;let v=el.value;
   if(t==='num'){if(v.trim()===''&&el.dataset.null)v=null;else{v=num(v,NaN);if(isNaN(v)){toast('Escribe un número, por ejemplo 2.45');renderInspector();return}}}
   if(t==='int'){v=Math.max(1,Math.round(num(v,1)))}
@@ -1212,7 +1330,9 @@ insp.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.o==='space'&&k==='piso'){view.piso=v}
   if(el.dataset.o==='el'&&k==='piso'){view.piso=v}
   if(el.dataset.o==='rf'&&k==='piso'){view.piso=v}
-  if(el.dataset.o==='rf'&&(k==='w'||k==='d'))obj[k]=Math.max(.3,v);
+  if(el.dataset.o==='rf'&&k==='plana')obj.plana=v==='1';
+  if(el.dataset.o.startsWith('redge:')&&k==='g'){obj.g=v==='1';if(!obj.g)obj.p=obj.p||30}
+  if(el.dataset.o==='rf'&&k==='rot'&&obj.forma==='poligono'){obj.rot=0}
   saved();renderAll(true);
 });
 insp.addEventListener('keydown',e=>{if(e.target.id==='meas'&&e.key==='Enter'){e.preventDefault();addWallFromMeas()}});
@@ -1250,7 +1370,7 @@ function act(a,v){
     case 'mkzone':startPick(s?s.walls.map(w=>w.id):[]);break;
     case 'zwalls':{const z=curZone();if(z)startPick(z.walls,z.id);break}
     case 'delRoof':pushUndo();P.roofs=(P.roofs||[]).filter(r=>r.id!==sel.rid);pendingDel=null;sel={t:'proj'};saved();renderAll();break;
-    case 'roofSpace':{const r=roofOverSpace(s);if(!r){toast('Primero dibuja los muros del espacio');break}pushUndo();roofsOf(P).push(r);sel={t:'roof',rid:r.id};view.roofs=true;saved();renderAll();toast('Cubierta creada. Ajusta tipo y pendiente arriba.');break}
+    case 'roofSpace':{const r=roofOverSpace(s)||(curZone()&&roofOverZone(curZone()));if(!r){toast('Primero dibuja los muros del espacio');break}pushUndo();roofsOf(P).push(r);sel={t:'roof',rid:r.id};view.roofs=true;saved();renderAll();toast('Cubierta creada. Ajusta tipo y pendiente arriba.');break}
     case 'delEl':pushUndo();P.elements=P.elements.filter(e=>e.id!==sel.eid);pendingDel=null;sel={t:'proj'};saved();renderAll();break;
     case 'addEl':{pushUndo();const c=CAT[v];let x=view.cx,y=view.cy,piso=view.piso,z=c.z;if(s){const g=geom(s);const p=toW(s,g.cen);x=p[0];y=p[1];piso=s.piso;z=c.z+s.npt;if(v==='columna'||v==='colcirc'||v==='escalera')Object.assign(c,{})}
       const e={id:uid(),type:v,x:Math.round(x*100)/100,y:Math.round(y*100)/100,rot:0,piso,w:c.w,d:c.d,h:(v==='columna'||v==='colcirc')&&s?s.h:c.h,z,nota:'',pat:'Humedad'};P.elements.push(e);sel={t:'el',eid:e.id};view.piso=piso;saved();renderAll();toast(c.n+' agregado. Arrástralo con el lápiz.');break}
@@ -1260,7 +1380,7 @@ function act(a,v){
 /* ============ vistas ============ */
 function setMode(m){view.mode=m;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===m)));
   cv.hidden=!(m==='planta'||m==='alzados');$('#cv3').hidden=m!=='3d';$('#msg3').hidden=true;$('#cuadro').hidden=m!=='cuadro';$('#hud').hidden=!(m==='planta'||m==='alzados');
-  $('#tools').hidden=m==='cuadro';['tPiso','tDims'].forEach(id=>$('#'+id).hidden=m!=='planta');$('#rail').hidden=m!=='planta';$('#elpal').hidden=true;hideQ();$('#tRoof').hidden=!(m==='planta'||m==='3d');
+  $('#tools').hidden=m==='cuadro';['tPiso','tDims'].forEach(id=>$('#'+id).hidden=m!=='planta');$('#rail').hidden=m!=='planta';$('#elpal').hidden=true;$('#roofpal').hidden=true;hideQ();$('#tRoof').hidden=!(m==='planta'||m==='3d');
   if(m==='planta'||m==='alzados'){requestAnimationFrame(fitView)}
   if(m==='3d')requestAnimationFrame(()=>{build3D(true)});
   if(m==='cuadro')renderCuadro();
@@ -1286,12 +1406,12 @@ function renderAll(keepForm){
 function cuadroData(){
   const codes=opCodes(),rows=[],ops=[];
   P.spaces.forEach(s=>{const g=geom(s);let wb=0,wo=0;g.segs.forEach((sg,i)=>{const w=sg.w,hI=wh(w,s,'i'),hF=wh(w,s,'f');wb+=sg.L*(hI+hF)/2;w.openings.forEach(o=>{const ww=Math.max(0,Math.min(o.w,sg.L));wo+=ww*o.h;ops.push({code:codes[o.id],type:o.type,esp:spName(s),piso:s.piso,muro:'M'+(i+1),w:ww,h:o.h,sill:o.sill,mat:o.mat||''})})});
-    if(!g.closed)return;rows.push({piso:s.piso,name:spName(s),area:g.area,per:g.perim,h:s.h,vol:g.area*s.h,wb,wo,wn:wb-wo,closed:g.closed,acab:s.pisoAcab,cielo:s.cielo,cub:(()=>{const c=toW(s,g.cen),rc=roofCodes();return(P.roofs||[]).filter(r=>(r.piso||1)===s.piso&&inPoly(c,elCorners(r))).map(r=>rc[r.id]+' '+RTN(r.tipo)+(r.mat?' · '+r.mat:'')).join(', ')})()})});
+    if(!g.closed)return;rows.push({piso:s.piso,name:spName(s),area:g.area,per:g.perim,h:s.h,vol:g.area*s.h,wb,wo,wn:wb-wo,closed:g.closed,acab:s.pisoAcab,cielo:s.cielo,cub:(()=>{const c=toW(s,g.cen),rc=roofCodes();return(P.roofs||[]).filter(r=>(r.piso||1)===s.piso&&inPoly(c,roofOutline(r))).map(r=>rc[r.id]+' '+roofType(r)+(r.mat?' · '+r.mat:'')).join(', ')})()})});
   (P.zones||[]).forEach(z=>{const g=zoneGeom(z);let wb=0,wo=0;g.refs.forEach(r=>{wb+=r.sg.L*(wh(r.w,r.s,'i')+wh(r.w,r.s,'f'))/2;r.w.openings.forEach(o=>{wo+=Math.max(0,Math.min(o.w,r.sg.L))*o.h})});
-    const rc=roofCodes();rows.push({piso:z.piso||1,name:z.name,area:g.area,per:g.perim,h:z.h,vol:g.area*z.h,wb,wo,wn:wb-wo,closed:true,acab:z.pisoAcab,cielo:z.cielo,cub:(P.roofs||[]).filter(r=>(r.piso||1)===(z.piso||1)&&inPoly(g.cen,elCorners(r))).map(r=>rc[r.id]+' '+RTN(r.tipo)).join(', ')})});
+    const rc=roofCodes();rows.push({piso:z.piso||1,name:z.name,area:g.area,per:g.perim,h:z.h,vol:g.area*z.h,wb,wo,wn:wb-wo,closed:true,acab:z.pisoAcab,cielo:z.cielo,cub:(P.roofs||[]).filter(r=>(r.piso||1)===(z.piso||1)&&inPoly(g.cen,roofOutline(r))).map(r=>rc[r.id]+' '+roofType(r)).join(', ')})});
   const pn=patNums();const pats=P.elements.filter(e=>e.type==='patologia').map(e=>({n:pn[e.id],pat:e.pat,piso:e.piso||1,x:e.x,y:e.y,z:e.z,nota:e.nota}));
   const els=P.elements.filter(e=>e.type!=='patologia').map(e=>({n:(CAT[e.type]||CAT.mueble).n,piso:e.piso||1,w:e.w,d:e.d,h:e.h,z:e.z,nota:e.nota}));
-  const rc=roofCodes(),roofs=(P.roofs||[]).map(r=>({code:rc[r.id],tipo:RTN(r.tipo),piso:r.piso||1,pend:r.tipo==='plana'?0:r.pend,ang:r.tipo==='plana'?0:roofAng(r),ap:r.w*r.d,ai:roofAreaInc(r),hA:r.hA,hC:roofTop(r),w:r.w,d:r.d,mat:r.mat||'',nota:r.nota||''}));
+  const rc=roofCodes(),roofs=(P.roofs||[]).map(r=>{const G=roofGeo(r),b=bboxPts(G.outline);return{code:rc[r.id],tipo:roofType(r),piso:r.piso||1,pend:roofPendT(r),ang:roofAngT(r),ap:G.ap,ai:G.ai,hA:r.hA,hC:G.top,w:b.x1-b.x0,d:b.y1-b.y0,mat:r.mat||'',nota:r.nota||''}});
   return{rows,ops,pats,els,roofs};
 }
 function renderCuadro(){
@@ -1302,8 +1422,8 @@ function renderCuadro(){
   ${rows.map(r=>`<tr><td>${r.piso}</td><td>${esc(r.name)}${r.closed?'':' <span class="warn">(abierto)</span>'}</td><td class="n">${f2(r.area)}</td><td class="n">${f2(r.per)}</td><td class="n">${f2(r.h)}</td><td class="n">${f2(r.vol)}</td><td class="n">${f2(r.wb)}</td><td class="n">${f2(r.wo)}</td><td class="n">${f2(r.wn)}</td><td>${esc(r.acab)}</td><td>${esc(r.cielo)}</td><td>${esc(r.cub)}</td></tr>`).join('')}
   <tr class="tot"><td></td><td>Total</td><td class="n">${f2(T('area'))}</td><td class="n">${f2(T('per'))}</td><td></td><td class="n">${f2(T('vol'))}</td><td class="n">${f2(T('wb'))}</td><td class="n">${f2(T('wo'))}</td><td class="n">${f2(T('wn'))}</td><td></td><td></td><td></td></tr></tbody></table></div>
   <div><h3>Cubiertas</h3></div>
-  <div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Piso</th><th>Pendiente %</th><th>Ángulo °</th><th>Ancho m</th><th>Fondo m</th><th>Área planta m²</th><th>Área inclinada m²</th><th>Alero m</th><th>Cumbrera m</th><th>Material</th></tr></thead><tbody>
-  ${roofs.map(r=>`<tr><td><b>${r.code}</b></td><td>${r.tipo}</td><td>${r.piso}</td><td class="n">${f2(r.pend)}</td><td class="n">${f2(r.ang)}</td><td class="n">${f2(r.w)}</td><td class="n">${f2(r.d)}</td><td class="n">${f2(r.ap)}</td><td class="n">${f2(r.ai)}</td><td class="n">${f2(r.hA)}</td><td class="n">${f2(r.hC)}</td><td>${esc(r.mat)}</td></tr>`).join('')}${roofs.length>1?`<tr class="tot"><td></td><td>Total</td><td></td><td></td><td></td><td></td><td></td><td class="n">${f2(roofs.reduce((a,r)=>a+r.ap,0))}</td><td class="n">${f2(roofs.reduce((a,r)=>a+r.ai,0))}</td><td></td><td></td><td></td></tr>`:''}${roofs.length?'':'<tr><td colspan="12">Sin cubiertas. Dibújalas con la herramienta Cubierta.</td></tr>'}</tbody></table></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Piso</th><th>Pendiente</th><th>Ángulo</th><th>Ancho m</th><th>Fondo m</th><th>Área planta m²</th><th>Área inclinada m²</th><th>Alero m</th><th>Cumbrera m</th><th>Material</th></tr></thead><tbody>
+  ${roofs.map(r=>`<tr><td><b>${r.code}</b></td><td>${r.tipo}</td><td>${r.piso}</td><td class="n">${r.pend}</td><td class="n">${r.ang}</td><td class="n">${f2(r.w)}</td><td class="n">${f2(r.d)}</td><td class="n">${f2(r.ap)}</td><td class="n">${f2(r.ai)}</td><td class="n">${f2(r.hA)}</td><td class="n">${f2(r.hC)}</td><td>${esc(r.mat)}</td></tr>`).join('')}${roofs.length>1?`<tr class="tot"><td></td><td>Total</td><td></td><td></td><td></td><td></td><td></td><td class="n">${f2(roofs.reduce((a,r)=>a+r.ap,0))}</td><td class="n">${f2(roofs.reduce((a,r)=>a+r.ai,0))}</td><td></td><td></td><td></td></tr>`:''}${roofs.length?'':'<tr><td colspan="12">Sin cubiertas. Dibújalas con la herramienta Cubierta.</td></tr>'}</tbody></table></div>
   <div><h3>Cuadro de puertas, ventanas y vanos</h3></div>
   <div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Tipo</th><th>Espacio</th><th>Muro</th><th>Ancho m</th><th>Alto m</th><th>Antepecho m</th><th>Material</th></tr></thead><tbody>
   ${ops.map(o=>`<tr><td><b>${o.code}</b></td><td>${o.type}</td><td>${esc(o.esp)}</td><td>${o.muro}</td><td class="n">${f2(o.w)}</td><td class="n">${f2(o.h)}</td><td class="n">${f2(o.sill)}</td><td>${esc(o.mat)}</td></tr>`).join('')||'<tr><td colspan="8">Sin vanos registrados.</td></tr>'}</tbody></table></div>
@@ -1359,7 +1479,7 @@ function build3D(refit){
       const h=Math.min(wh(j.prev.w,s,'f'),wh(j.cur.w,s,'i'));const sh=new THREE.Shape([p,a,m,b].map(q=>new THREE.Vector2(q[0],q[1])));const geo=new THREE.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false});geo.rotateX(-Math.PI/2);sg_.add(new THREE.Mesh(geo,mWall))});
     if(g.closed){const sh=new THREE.Shape(g.P.map(q=>new THREE.Vector2(q[0],q[1])));const geo=new THREE.ExtrudeGeometry(sh,{depth:.06,bevelEnabled:false});geo.rotateX(-Math.PI/2);geo.translate(0,-.06,0);sg_.add(new THREE.Mesh(geo,mFloor))}
   });
-  if(view.roofs)(P.roofs||[]).forEach(r=>{const m=roofModel(r),pos=[];m.F.forEach(f=>{const v=f.map(q=>{const w=elLocal(r,q[0],q[1]);return[w[0],q[2],-w[1]]});for(let i=1;i<v.length-1;i++)[v[0],v[i],v[i+1]].forEach(q=>pos.push(...q))});
+  if(view.roofs)(P.roofs||[]).forEach(r=>{const pos=[];roofTris(r).forEach(t=>t.forEach(q=>pos.push(q[0],q[2],-q[1])));if(!pos.length)return;
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();G.add(new THREE.Mesh(geo,sel.rid===r.id?mWallSel:mRoof));edges(geo,G)});
   P.elements.forEach(e=>{const c=CAT[e.type]||CAT.mueble;let mesh;
     if(c.marker){mesh=new THREE.Mesh(new THREE.SphereGeometry(.12,16,12),mPat);mesh.position.set(e.x,(e.z||0),-e.y);G.add(mesh);return}
@@ -1441,7 +1561,7 @@ function showPending(){const p=$('#pop');p.innerHTML=`<h3>Archivo listo</h3><p c
 function makeCSV(){const {rows,ops,pats,roofs}=cuadroData();const n=v=>fc(v),q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';let o='﻿'+q(P.name)+';'+q(P.dir)+';'+q(P.mun)+';'+q(P.fecha)+'\r\n\r\nCUADRO DE ÁREAS\r\nPiso;Espacio;Área m²;Perímetro m;Altura m;Volumen m³;Muro bruto m²;Vanos m²;Muro neto m²;Piso acabado;Cielo raso;Cubierta\r\n';
   rows.forEach(r=>o+=[r.piso,q(r.name),n(r.area),n(r.per),n(r.h),n(r.vol),n(r.wb),n(r.wo),n(r.wn),q(r.acab),q(r.cielo),q(r.cub)].join(';')+'\r\n');
   o+='\r\nCUADRO DE PUERTAS, VENTANAS Y VANOS\r\nCódigo;Tipo;Piso;Espacio;Muro;Ancho m;Alto m;Antepecho m;Material\r\n';ops.forEach(r=>o+=[r.code,r.type,r.piso,q(r.esp),r.muro,n(r.w),n(r.h),n(r.sill),q(r.mat)].join(';')+'\r\n');
-  o+='\r\nCUBIERTAS\r\nCódigo;Tipo;Piso;Pendiente %;Ángulo °;Ancho m;Fondo m;Área planta m²;Área inclinada m²;Alero m;Cumbrera m;Material\r\n';roofs.forEach(r=>o+=[r.code,r.tipo,r.piso,n(r.pend),n(r.ang),n(r.w),n(r.d),n(r.ap),n(r.ai),n(r.hA),n(r.hC),q(r.mat)].join(';')+'\r\n');
+  o+='\r\nCUBIERTAS\r\nCódigo;Tipo;Piso;Pendiente %;Ángulo °;Ancho m;Fondo m;Área planta m²;Área inclinada m²;Alero m;Cumbrera m;Material\r\n';roofs.forEach(r=>o+=[r.code,q(r.tipo),r.piso,q(r.pend),q(r.ang),n(r.w),n(r.d),n(r.ap),n(r.ai),n(r.hA),n(r.hC),q(r.mat)].join(';')+'\r\n');
   o+='\r\nPATOLOGÍAS\r\nN.º;Tipo;Piso;X;Y;Altura;Descripción\r\n';pats.forEach(r=>o+=[r.n,q(r.pat),r.piso,n(r.x),n(r.y),n(r.z),q(r.nota)].join(';')+'\r\n');return o}
 
 /* ----- DXF R12 ----- */
@@ -1530,7 +1650,7 @@ function pdfCuadro(doc,x,y,w,h){const {rows,ops,pats,roofs}=cuadroData();let cy=
   const T=k=>rows.reduce((a,r)=>a+r[k],0);
   table('CUADRO DE ÁREAS',['Piso','Espacio','Área m²','Perím. m','Altura m','Vol. m³','Muro neto m²','Piso acabado','Cubierta'],[.05,.2,.08,.08,.07,.08,.1,.16,.18],rows.map(r=>[r.piso,r.name,f2(r.area),f2(r.per),f2(r.h),f2(r.vol),f2(r.wn),r.acab,r.cub]).concat([['','TOTAL',f2(T('area')),f2(T('per')),'',f2(T('vol')),f2(T('wn')),'','']]));
   table('CUADRO DE PUERTAS, VENTANAS Y VANOS',['Código','Tipo','Espacio','Muro','Ancho','Alto','Antepecho','Material'],[.08,.1,.2,.07,.08,.08,.09,.3],ops.map(o=>[o.code,o.type,o.esp,o.muro,f2(o.w),f2(o.h),f2(o.sill),o.mat]));
-  if(roofs.length)table('CUBIERTAS',['Código','Tipo','Piso','Pend. %','Ángulo','Área planta','Área inclinada','Alero','Cumbrera','Material'],[.07,.09,.05,.08,.07,.1,.11,.08,.09,.26],roofs.map(r=>[r.code,r.tipo,r.piso,f2(r.pend),f2(r.ang)+'°',f2(r.ap),f2(r.ai),f2(r.hA),f2(r.hC),r.mat]));
+  if(roofs.length)table('CUBIERTAS',['Código','Tipo','Piso','Pend. %','Ángulo','Área planta','Área inclinada','Alero','Cumbrera','Material'],[.07,.09,.05,.08,.07,.1,.11,.08,.09,.26],roofs.map(r=>[r.code,r.tipo,r.piso,r.pend,r.ang,f2(r.ap),f2(r.ai),f2(r.hA),f2(r.hC),r.mat]));
   if(pats.length)table('PATOLOGÍAS',['N.º','Tipo','Piso','Altura','Descripción'],[.05,.14,.06,.07,.68],pats.map(p=>[p.n,p.pat,p.piso,f2(p.z),p.nota]));
 }
 

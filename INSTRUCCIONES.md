@@ -71,11 +71,16 @@ Con el iPad conectado:
 - **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
 - **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK. Los muros de al lado se acomodan solos.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
-- **Cubierta:** arrastra con el lápiz de una esquina a la otra para dibujarla. Si solo tocas dentro de un espacio, se crea encima de él con un alero de 0.50 m.
-  - En la barra de arriba eliges el tipo: Plana, 1 agua, 2 aguas o 4 aguas.
-  - Tocando el % cambias la pendiente; con **Girar caída** cambias hacia dónde corre el agua.
-  - Con **Mover:** arrastra la cubierta, estira sus esquinas o gírala con el círculo.
-  - En **Datos** pones la altura del alero o de la cumbrera (la pendiente se recalcula sola), el material y el estado.
+- **Cubierta:** al tocar la herramienta eliges la forma y la dibujas con el lápiz.
+  - **Rectangular, bóveda o anillo/estadio:** arrastra de una esquina a la otra.
+  - **Forma libre:** toca cada esquina y toca la primera para cerrar.
+  - **Polígono regular** (eliges el número de lados), **circular (cono) o cúpula:** arrastra del centro hacia afuera.
+  - Si solo tocas dentro de un espacio, la cubierta toma su forma (también en L, T o U) con un alero de 0.50 m.
+  - **Cada lado es un agua o un hastial**, con su propia pendiente. Las cumbreras, limatesas y limahoyas se calculan solas.
+  - **Para estirar una agua,** arrastra el punto naranja del medio de ese lado: el alero se corre y la cubierta se recalcula.
+  - Si tocas ese punto sin arrastrar, eliges el lado y arriba puedes ponerlo en agua o hastial, cambiar su pendiente, dividirlo o quitarlo.
+  - Los puntos blancos de las esquinas cambian la forma. El círculo de arriba gira la cubierta.
+  - En **Datos** pones la altura del alero, la pendiente de cada lado, el material y el estado. En la cúpula y la bóveda pones la flecha (altura); en el anillo, el ancho y hacia dónde cae el agua.
   - El PDF y el DXF traen una hoja de **planta de cubiertas**, y el cuadro muestra el área en planta y el área inclinada.
 - **Espacios:** el nombre y el área solo aparecen cuando el espacio queda cerrado. Mientras esté abierto, se ve como "Muros abiertos".
   - Para volverlo espacio sin cerrarlo, tócalo y luego **Convertir en espacio**.
