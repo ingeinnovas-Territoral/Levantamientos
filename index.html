@@ -179,6 +179,7 @@ main.nopanel aside{display:none}
       <button class="btn" id="bPanel" aria-pressed="false">Datos</button>
       <button class="btn" id="bUndo" aria-label="Deshacer">↶</button>
       <button class="btn" id="bRedo" aria-label="Rehacer">↷</button>
+      <button class="btn acc" id="bSave" title="Guardar una copia del levantamiento en el iPad">Guardar</button>
       <button class="btn pri" id="bExp">Exportar</button>
     </div>
   </header>
@@ -1779,13 +1780,13 @@ function openDrawer(){renderDrawer();$('#drawer').hidden=false}
 function renderDrawerIfOpen(){if(!$('#drawer').hidden)renderDrawer()}
 function renderDrawer(){const ps=Object.values(store.projects).sort((a,b)=>(b.updated||0)-(a.updated||0));
   $('#drawerIn').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Proyectos</h2><button class="btn" data-p="close">Cerrar</button></div>
-  <div class="row-btns"><button class="btn acc" data-p="new">+ Nuevo levantamiento</button><button class="btn" data-p="import">Importar respaldo…</button></div>
+  <div class="row-btns"><button class="btn acc" data-p="new">+ Nuevo levantamiento</button><button class="btn" data-p="import">Abrir archivo guardado…</button><button class="btn" data-p="saveall">Guardar todos</button></div>
   <div class="list">${ps.map(p=>`<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-bottom:1px solid var(--line);background:${p.id===P.id?'var(--accentwash)':'var(--panel)'}">
    ${pRen===p.id?`<div style="display:flex;gap:6px;align-items:center"><input id="renIn" value="${esc(p.name)}" aria-label="Nombre del levantamiento" style="flex:1;min-width:0;font-size:16px;padding:8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-p="renok" data-v="${p.id}">Guardar</button><button class="btn sm" data-p="rencancel">Cancelar</button></div>`:`<div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="num" style="font:12px var(--f-num);color:var(--ink2)">${new Date(p.updated||0).toLocaleDateString('es-CO')}</span></div>`}
    <span class="hint">${(p.spaces||[]).length} espacios${p.mun?' · '+esc(p.mun):''}</span>
    <div class="row-btns">${p.id!==P.id?`<button class="btn sm" data-p="open" data-v="${p.id}">Abrir</button>`:'<span class="hint">Abierto</span>'}<button class="btn sm" data-p="ren" data-v="${p.id}">Renombrar</button><button class="btn sm" data-p="dup" data-v="${p.id}">Duplicar</button>
    ${pDel===p.id?`<span class="confirm">¿Eliminar? <button class="btn sm dng" data-p="del" data-v="${p.id}">Sí</button><button class="btn sm" data-p="nodel">No</button></span>`:`<button class="btn sm dng" data-p="askdel" data-v="${p.id}">Eliminar</button>`}</div></div>`).join('')}</div>
-  <p class="hint">Tus proyectos se guardan solo en este iPad. Exporta un respaldo .json de cada proyecto y pásalo al computador de vez en cuando.</p>`}
+  <p class="hint">Tus levantamientos viven dentro de la app. Toca <b>Guardar</b> (arriba) o <b>Guardar todos</b> y elige <b>Guardar en Archivos → En mi iPad</b> para tener una copia en la memoria del iPad. Para recuperarlos usa <b>Abrir archivo guardado</b>.</p>`}
 function openProject(id){P=store.projects[id];migrateRoofs(P);ensureLevels(P);store.current=id;saveLocal();undoS=[];redoS=[];sel={t:'proj'};view.piso=1;renderAll();setMode(view.mode)}
 function projAct(a,v){
   if(a!=='askdel')pDel=null;
@@ -1796,13 +1797,20 @@ function projAct(a,v){
   if(a==='rencancel'){renderDrawer();return}
   if(a==='renok'){const i=$('#renIn'),n=i?i.value.trim():'';if(!n){toast('Escribe un nombre');return}const p=store.projects[v];if(p){p.name=n;p.updated=Date.now();delete p.example;saveLocal();queueRemote(v)}pRen=null;renderDrawer();renderAll();toast('Nombre guardado');return}
   if(a==='import'){$('#fileIn').click();return}
+  if(a==='saveall'){saveAllProjects();return}
   if(a==='open'){openProject(v);$('#drawer').hidden=true;return}
   if(a==='dup'){const p=JSON.parse(JSON.stringify(store.projects[v]));p.id=uid();p.name+=' (copia)';p.updated=Date.now();delete p.example;store.projects[p.id]=p;saveLocal();queueRemote(p.id);renderDrawer();return}
   if(a==='askdel'){pDel=v;renderDrawer();return}
   if(a==='nodel'){renderDrawer();return}
   if(a==='del'){delete store.projects[v];saveLocal();queueRemote(v);if(v===P.id){const rest=Object.keys(store.projects);if(!rest.length){const p=newProject();store.projects[p.id]=p;saveLocal();queueRemote(p.id)}openProject(Object.keys(store.projects)[0])}renderDrawer();return}
 }
-$('#fileIn').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const p=JSON.parse(r.result);if(!p||!Array.isArray(p.spaces))throw 0;p.id=uid();p.updated=Date.now();p.elements=p.elements||[];store.projects[p.id]=p;saveLocal();queueRemote(p.id);openProject(p.id);$('#drawer').hidden=true;toast('Proyecto importado')}catch(err){toast('Ese archivo no es un respaldo de levantamiento')}};r.readAsText(f);e.target.value=''};
+const stampNow=()=>{const d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'_'+z(d.getHours())+z(d.getMinutes())};
+async function saveProject(){try{await saveFile(safeName()+'_'+stampNow()+'.json',JSON.stringify(P,null,1))}catch(e){toast(e&&e.message?e.message:'No se pudo guardar')}}
+async function saveAllProjects(){const all=Object.values(store.projects);try{await saveFile('levantamientos_todos_'+stampNow()+'.json',JSON.stringify({tipo:'levantamientos',version:1,guardado:new Date().toISOString(),proyectos:all},null,1))}catch(e){toast(e&&e.message?e.message:'No se pudo guardar')}}
+$('#bSave').onclick=saveProject;
+$('#fileIn').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);const list=data&&Array.isArray(data.proyectos)?data.proyectos:[data];let last=null,n=0;
+  list.forEach(p=>{if(!p||!Array.isArray(p.spaces))return;const same=store.projects[p.id];if(same&&(same.updated||0)>=(p.updated||0))return;if(!p.id||same)p.id=same&&(same.updated||0)<(p.updated||0)?p.id:uid();p.elements=p.elements||[];migrateRoofs(p);ensureLevels(p);store.projects[p.id]=p;queueRemote(p.id);last=p.id;n++});
+  if(!n){toast(list.length?'Esos levantamientos ya están en el iPad':'Ese archivo no es un levantamiento guardado');return}saveLocal();openProject(last);$('#drawer').hidden=true;toast(n===1?'Levantamiento abierto':n+' levantamientos abiertos')}catch(err){toast('Ese archivo no es un levantamiento guardado')}};r.readAsText(f);e.target.value=''};
 
 /* ============ exportar ============ */
 let paper='carta';
@@ -1812,7 +1820,7 @@ $('#bExp').onclick=()=>{const p=$('#pop');if(!p.hidden){p.hidden=true;return}
   <label class="fld"><span>Hoja del PDF</span><select id="xPaper"><option value="carta" ${paper==='carta'?'selected':''}>Carta horizontal</option><option value="doble" ${paper==='doble'?'selected':''}>Doble carta (11×17″)</option></select></label>
   <button class="btn" data-x="pdf">PDF de planos<small>Plantas, alzados y cuadros con rótulo y escala</small></button>
   <button class="btn" data-x="csv">Cuadro de áreas y vanos (CSV)<small>Se abre en Excel</small></button>
-  <button class="btn" data-x="json">Respaldo del proyecto (.json)<small>Para importarlo en otro equipo</small></button>`;p.hidden=false};
+  <button class="btn" data-x="json">Copia del levantamiento (.json)<small>Para abrirlo en otro iPad o computador</small></button>`;p.hidden=false};
 document.addEventListener('pointerdown',e=>{const p=$('#pop');if(!p.hidden&&!p.contains(e.target)&&e.target.id!=='bExp')p.hidden=true});
 $('#pop').addEventListener('change',e=>{if(e.target.id==='xPaper')paper=e.target.value});
 $('#pop').addEventListener('click',async e=>{const b=e.target.closest('[data-x]');if(!b)return;const x=b.dataset.x;b.disabled=true;try{
@@ -1949,7 +1957,7 @@ function boot(){
   const re=()=>{readCols();if(view.mode==='3d')build3D(false);else draw2D()};
   try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',re)}catch(e){}
   new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();e.shiftKey?doRedo():doUndo()}});
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveProject();return}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();e.shiftKey?doRedo():doUndo()}});
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(view.mode!=='3d'&&view.mode!=='cuadro')draw2D()});
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}

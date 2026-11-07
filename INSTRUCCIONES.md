@@ -124,12 +124,18 @@ Con el iPad conectado:
   - **Respaldo .json** de cada proyecto.
 - **Pasar archivos al computador:** desde la app Archivos, por AirDrop, cable o memoria USB-C.
 
+## Guardar en el iPad
+
+- Toca **Guardar**, arriba a la derecha (o Cmd + S con teclado).
+- En la hoja que se abre, toca **Guardar en Archivos**, elige **En mi iPad** (o una carpeta tuya, por ejemplo "Levantamientos") y toca **Guardar**.
+- El archivo queda con el nombre del proyecto, la fecha y la hora, por ejemplo `Casa_Acevedo_2026-11-07_1619.json`. Así cada vez que guardas tienes una copia nueva y no se pisa la anterior.
+- **Guardar todos** (en la lista de proyectos) guarda todos tus levantamientos en un solo archivo.
+- Para recuperarlos, en la lista de proyectos toca **Abrir archivo guardado…** y elige el archivo en Archivos. Sirve también para pasar los levantamientos a otro iPad o al computador.
+
 ## Cuidado con los datos
 
-- Los proyectos viven **solo en este iPad**.
-- **Si borras el ícono de la app, se borran los proyectos.** Exporta antes el respaldo .json de cada uno.
-- Exporta el respaldo .json de cada obra al terminarla y guárdalo en el computador.
-- Para abrir un respaldo en otro iPad: Proyecto ▾ → **Importar respaldo…**
+- La app guarda sola mientras trabajas, pero esa copia vive dentro de la app.
+- **Si borras el ícono de la app, se borra esa copia.** Por eso toca **Guardar** al terminar cada jornada de obra.
 
 ## Cuando haya una versión nueva
 
