@@ -73,6 +73,10 @@ Con el iPad conectado:
   - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
   - En un espacio ya hecho se cambia en **Datos → Medidas tomadas por**.
   - Las distancias de puertas y ventanas se miden desde la esquina de esa misma cara.
+- **Largos redondeados:** al dibujar con el lápiz, el largo del muro sale de 10 en 10 cm (3.10, 3.20, 3.30…), no 3.12 o 5.18.
+  - Si llegas a la esquina de otro muro o al punto inicial, se pega exacto a esa esquina.
+  - Al tocar **Muro** puedes cambiar el redondeo a 5 cm o a 1 cm.
+  - La medida que escribes en el cuadro de medidas o en la cota se respeta tal cual, con centímetros (por ejemplo 3.12).
 - **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK.
   - Antes, elige **Fija inicio** o **Fija final**: esa esquina se queda quieta (cuadrito naranja) y el muro crece hacia la otra. Todo lo que está más allá de la esquina libre se corre con ella, como estirar en ArchiCAD.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
