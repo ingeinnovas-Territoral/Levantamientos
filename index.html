@@ -163,23 +163,37 @@ main.nopanel aside{display:none}
 [hidden]{display:none!important}
 #cv{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .ptab{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:6;width:30px;height:88px;border:1px solid var(--line);border-right:0;border-radius:12px 0 0 12px;background:var(--panel);color:var(--ink);font-size:22px;display:flex;align-items:center;justify-content:center;box-shadow:-3px 0 10px rgba(0,0,0,.08);cursor:pointer;padding:0}
-.props{position:absolute;z-index:7;width:300px;max-width:calc(100% - 96px);max-height:calc(100% - 80px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);transition:opacity .15s}
-.props.ghost{opacity:.25;pointer-events:none}
-.props .ph{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;background:var(--ink);color:var(--paper);cursor:grab;touch-action:none;border-radius:13px 13px 0 0;position:sticky;top:0;z-index:1}
+.props{position:absolute;z-index:7;width:226px;max-width:calc(100% - 96px);max-height:calc(100% - 80px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:0 8px 22px rgba(0,0,0,.16);opacity:.55;transition:opacity .2s}
+.props.on,.props:focus-within{opacity:1}
+.props.ghost{opacity:.18;pointer-events:none}
+.props .ph{display:flex;align-items:center;gap:4px;padding:3px 3px 3px 9px;background:var(--ink);color:var(--paper);cursor:grab;touch-action:none;border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;font-size:12.5px}
 .props .ph b{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.props .ph .grip{opacity:.55;font-size:13px;letter-spacing:-2px}
-.props .ph button{background:none;border:0;color:inherit;font-size:20px;width:36px;height:32px;cursor:pointer;border-radius:8px}
-.props .pb{padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.props .pf{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--ink2);min-width:0}
+.props .ph .grip{opacity:.5;font-size:11px;letter-spacing:-2px}
+.props .ph button{background:none;border:0;color:inherit;font-size:16px;width:28px;height:26px;cursor:pointer;border-radius:6px;padding:0}
+.props .pb{padding:7px;display:grid;grid-template-columns:1fr 1fr;gap:5px 6px}
+.props .pf{display:flex;flex-direction:column;gap:1px;font-size:10px;color:var(--ink2);min-width:0}
 .props .pf.full{grid-column:1/-1}
-.props .pf input{font:600 24px var(--f-num);height:54px;padding:4px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);width:100%;box-sizing:border-box;min-width:0}
+.props .pl{display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden}
+.props .pl svg{width:13px;height:13px;flex:none;color:var(--accent)}
+.props .pf input{font:600 16px var(--f-num);height:33px;padding:2px 7px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);width:100%;box-sizing:border-box;min-width:0}
 .props .pf input::placeholder{color:var(--ink2);opacity:.55}
-.props .pf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accentwash)}
-.props .info{grid-column:1/-1;font:13px var(--f-num);color:var(--ink2)}
+.props .pf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accentwash)}
+.props .info{grid-column:1/-1;font:11px var(--f-num);color:var(--ink2);line-height:1.35}
 .props .info:empty{display:none}
-.radial button.cur{box-shadow:inset 0 0 0 2px var(--ink),0 6px 18px rgba(0,0,0,.22)}
-.props .pa{display:flex;gap:6px;flex-wrap:wrap;padding:0 10px 10px}
-.props .pa .btn{flex:1 1 auto}
+.props .info .btn.sm{padding:2px 7px;min-height:0;font-size:11px}
+.props .pa{display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 7px}
+.props .ib{width:32px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.props .ib svg{width:17px;height:17px}
+.props .ib.dng{color:var(--danger)}
+.props .tb{padding:2px 8px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);font-size:11.5px;cursor:pointer}
+.props .seg{grid-column:1/-1;display:flex;gap:4px}
+.props .seg button{flex:1;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:2px;font-size:10px;display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:0}
+.props .seg button svg{width:34px;height:26px}
+.props .seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accentwash);font-weight:600}
+.props .cap{grid-column:1/-1;font-size:10px;color:var(--ink2);margin-top:2px}
+.props .chips{grid-column:1/-1;display:flex;gap:3px;flex-wrap:wrap}
+.props .chips button{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;font:500 11.5px var(--f-num);height:27px;cursor:pointer;padding:0 2px}
+.props .chips button.on{border-color:var(--accent);background:var(--accentwash);font-weight:700}
 .radial{position:absolute;z-index:9;width:0;height:0}
 .radial button{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10.5px;line-height:1.1;box-shadow:0 6px 18px rgba(0,0,0,.22);cursor:pointer;transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0;transition:transform .16s ease-out,opacity .12s;padding:0}
 .radial.show button{transform:translate(var(--dx),var(--dy)) scale(1);opacity:1}
@@ -1099,10 +1113,10 @@ function setTool(t){
   if(view.tool==='muro'&&t!=='muro')endChain();
   if(t==='el'&&view.tool==='el'){$('#elpal').hidden=!$('#elpal').hidden;return}
   if((t==='puerta'||t==='ventana')&&view.tool===t){$('#oppal').hidden=!$('#oppal').hidden;opPalMode='tool';if(!$('#oppal').hidden)renderOpPal(t);return}
-  if(t==='muro'&&view.tool==='muro'){$('#wallpal').hidden=!$('#wallpal').hidden;if(!$('#wallpal').hidden)renderWallPal();return}
+  if(t==='muro'&&view.tool==='muro'){propsHide=null;propsSig='';renderProps();return}
   if(t==='cub'&&view.tool==='cub'){$('#roofpal').hidden=!$('#roofpal').hidden;if(!$('#roofpal').hidden)renderRoofPal();return}
   if(t!=='cub')rdraft=null;$('#roofpal').hidden=t!=='cub';if(t==='cub')renderRoofPal();
-  $('#wallpal').hidden=t!=='muro';if(t==='muro')renderWallPal();
+  $('#wallpal').hidden=true;
   $('#stairpal').hidden=t!=='esc';if(t==='esc')renderStairPal();$('#slabpal').hidden=t!=='losa';if(t==='losa')renderSlabPal();if(t!=='losa')sdraft=null;
   $('#oppal').hidden=!(t==='puerta'||t==='ventana');if(t==='puerta'||t==='ventana'){opPalMode='tool';renderOpPal(t)}
   view.tool=t;if(t==='cub'&&!view.roofs){view.roofs=true;$('#tRoof').classList.add('on');$('#tRoof').setAttribute('aria-pressed','true')}renderRail();$('#elpal').hidden=t!=='el';if(t==='el')renderPal();hideQ();
@@ -1560,60 +1574,71 @@ function deleteSel(){if(PROPT.includes(sel.t))chipDo('del')}
 let propsHide=null,propsSig='';
 const selKey=()=>JSON.stringify(sel);
 const pfv=f=>f.v==null?'':(typeof f.v==='number'?(f.int?String(Math.round(f.v)):f2(f.v)):String(f.v));
-const pfHTML=f=>`<label class="pf${f.full?' full':''}"><span>${f.l}</span><input data-o="${f.o}" data-k="${f.k}" data-t="${f.int?'int':'num'}" ${f.nul?'data-null="1"':''} value="${esc(pfv(f))}" placeholder="${esc(f.ph||'')}" inputmode="decimal" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`;
+const FICO={len:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',w:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',ancho:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',h:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hIni:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hFin:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',t:'<path d="M4 2v12M12 2v12M4 8h8"/>',esp:'<path d="M2 5h12M2 11h12M8 5v6"/>',d:'<path d="M3 13l10-10M3 13h4M3 13V9M13 3H9M13 3v4"/>',sill:'<path d="M3 14h10M8 14V8M5 4h6v4H5z"/>',off:'<path d="M2 3v10M2 8h11M13 8l-3-3M13 8l-3 3"/>',rot:'<path d="M13 8a5 5 0 1 1-1.5-3.6M12 1.5v3h-3"/>',z:'<path d="M2 14h12M8 13V5M8 5L5 8M8 5l3 3"/>',npt:'<path d="M2 12h12M8 4l-3 5h6z"/>',n:'<path d="M2 14h3v-3h3V8h3V5h3"/>',huella:'<path d="M2 12h4V8h4V4h4"/>',p:'<path d="M2 13L14 5M2 13h12"/>',pend:'<path d="M2 13L14 5M2 13h12"/>',hA:'<path d="M2 9l6-5 6 5M8 9v5"/>',rise:'<path d="M2 13q6-12 12 0M8 6v7"/>',depth:'<path d="M3 8h10M10 5l3 3-3 3M3 4v8"/>'};
+const pfHTML=f=>`<label class="pf${f.full?' full':''}" title="${esc(f.l)}"><span class="pl"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FICO[f.k]||FICO.len}</svg>${f.l}</span><input data-o="${f.o}" data-k="${f.k}" data-t="${f.int?'int':'num'}" ${f.nul?'data-null="1"':''} value="${esc(pfv(f))}" placeholder="${esc(f.ph||'')}" inputmode="decimal" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`;
 function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Object.assign({l,o,k,v},x||{}));
   if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w),sg=geom(s).segs[i];t='Muro M'+(i+1);
-    f('Largo · '+refName(s.ref).toLowerCase(),'wlen','len',sg.refL,{full:1});f('Espesor','wall','t',w.t,{full:0});f('Alto','wall','hIni',w.hIni,{nul:1,ph:f2(s.h)});
-    f('Alto al final (si cambia)','wall','hFin',w.hFin,{nul:1,ph:f2(w.hIni!=null?w.hIni:s.h),full:1});
-    info=`Al cambiar el largo se queda quieta la esquina: <button class="btn sm${(view.anchor||'ini')==='ini'?' on':''}" data-pc="anc" data-v="ini">de inicio</button> <button class="btn sm${view.anchor==='fin'?' on':''}" data-pc="anc" data-v="fin">final</button>`;
+    f('Largo · '+({int:'c. interior',eje:'eje',ext:'c. exterior'}[s.ref||'int']),'wlen','len',sg.refL,{full:1});f('Espesor','wall','t',w.t);f('Alto','wall','hIni',w.hIni,{nul:1,ph:f2(s.h)});
+    f('Alto final','wall','hFin',w.hFin,{nul:1,ph:f2(w.hIni!=null?w.hIni:s.h)});
+    info=`Esquina fija: <button class="btn sm${(view.anchor||'ini')==='ini'?' on':''}" data-pc="anc" data-v="ini">inicio</button> <button class="btn sm${view.anchor==='fin'?' on':''}" data-pc="anc" data-v="fin">final</button>`;
     A.push(['tool:puerta','+ Puerta'],['tool:ventana','+ Ventana'],['del','Eliminar','dng'])}
   else if(sel.t==='op'&&curOp()){const o=curOp(),s=curSpace(),w=curWall(),sg=geom(s).segs[s.walls.indexOf(w)];t=opCodes()[o.id]+' · '+(o.type==='vano'?'Vano':opSubName(o));
-    f('Ancho','op:'+o.id,'w',o.w);f('Alto','op:'+o.id,'h',o.h);f('Antepecho','op:'+o.id,'sill',o.sill);f('Desde la esquina','op:'+o.id,'off',r2(o.off-sg.s0));
+    f('Ancho','op:'+o.id,'w',o.w);f('Alto','op:'+o.id,'h',o.h);f('Antepecho','op:'+o.id,'sill',o.sill);f('Desde esq.','op:'+o.id,'off',r2(o.off-sg.s0));
     if(o.type!=='vano')A.push(['otype','Cambiar tipo']);if(o.type==='puerta')A.push(['hinge','Bisagra'],['swing',o.swing==='ext'?'Abre afuera':'Abre adentro']);A.push(['del','Eliminar','dng'])}
   else if(sel.t==='el'&&curEl()){const e=curEl(),c=CAT[e.type]||CAT.mueble;t=c.n;
-    if(c.marker)f('Altura sobre el piso','el','z',e.z,{full:1});
+    if(c.marker)f('Altura','el','z',e.z,{full:1});
     else if(c.circ){f('Diámetro','el','w',e.w);f('Alto','el','h',e.h);f('Base','el','z',e.z)}
     else{f('Ancho','el','w',e.w);f('Fondo','el','d',e.d);f('Alto','el','h',e.h);f('Giro (°)','el','rot',e.rot)}
     if(!c.marker)A.push(['rot90','Girar 90°']);A.push(['dup','Duplicar'],['del','Eliminar','dng'])}
   else if(sel.t==='space'&&curSpace()){const s=curSpace(),g=geom(s);t=g.closed?spName(s):'Muros abiertos';
-    f('Altura libre','space','h',s.h);f('Nivel piso (NPT)','space','npt',s.npt);
+    f('Altura libre','space','h',s.h);f('NPT','space','npt',s.npt);
     info=g.closed?`Área ${f2(g.area)} m² · perímetro ${f2(g.perim)} m`:`${s.walls.length} muros · faltan ${f2(g.gap)} m para cerrar`;A.push(['del','Eliminar','dng'])}
-  else if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);t=z.name;f('Altura libre','zone','h',z.h);f('Nivel piso (NPT)','zone','npt',z.npt);info=`Área ${f2(g.area)} m²`;A.push(['zwalls','Muros'],['del','Eliminar','dng'])}
+  else if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);t=z.name;f('Altura libre','zone','h',z.h);f('NPT','zone','npt',z.npt);info=`Área ${f2(g.area)} m²`;A.push(['zwalls','Muros'],['del','Eliminar','dng'])}
   else if(sel.t==='slab'&&curSlab()){const sl=curSlab();t='Losa '+slabCodes()[sl.id];f('Espesor','sl','esp',sl.esp);f('Nivel superior','sl','z',sl.z);info=`Área ${f2(slabArea(sl))} m² · volumen ${f2(slabArea(sl)*sl.esp)} m³`;A.push(['slhole','+ Vacío'],['del','Eliminar','dng'])}
   else if(sel.t==='stair'&&curStair()){const st=curStair(),b=blondel(st);t='Escalera '+stairCodes()[st.id];
-    f('Ancho','st','ancho',st.ancho);f('Altura a salvar','st','h',st.h);f('Contrahuellas','st','n',st.n,{int:1});f('Huella','st','huella',st.huella);
+    f('Ancho','st','ancho',st.ancho);f('Altura','st','h',st.h);f('Contrah.','st','n',st.n,{int:1});f('Huella','st','huella',st.huella);
     info=`Contrahuella ${f2(b.ch)} · 2c + h = ${f2(b.v)} ${b.ok?'✓ cumple Blondel':'· no cumple Blondel'}`;A.push(['del','Eliminar','dng'])}
   else if(sel.t==='roof'&&curRoof()){const r=curRoof(),code=roofCodes()[r.id];t='Cubierta '+code;
     if(r.forma==='poligono'){const i=sel.edge,e=i!=null&&r.edges[i];
-      if(e){t+=' · lado L'+(i+1);f('Altura alero','rf','hA',r.hA);if(!e.g)f('Pendiente de este lado %','redge:'+i,'p',e.p);else info='Este lado es un hastial.';A.push(['eall','Toda la cubierta'])}
+      if(e){t+=' · lado L'+(i+1);f('Altura alero','rf','hA',r.hA);if(!e.g)f('Pendiente %','redge:'+i,'p',e.p);else info='Este lado es un hastial.';A.push(['eall','Toda la cubierta'])}
       else{f('Altura alero','rf','hA',r.hA);f('Pendiente %','rfall','p',(r.edges.find(x=>!x.g)||{p:30}).p)}
       info=info||`${roofType(r)} · área inclinada ${f2(roofGeo(r).ai)} m²`}
     else if(r.forma==='estadio'){f('Altura alero','rf','hA',r.hA);f('Pendiente %','rf','pend',r.pend);f('Ancho del anillo','rf','ancho',r.ancho,{full:1})}
     else{f('Altura arranque','rf','hA',r.hA);f('Flecha (alto)','rf','rise',r.rise)}
     A.push(['del','Eliminar','dng'])}
-  else if(sel.t==='section'&&curSection()){const c=curSection();t='Corte '+c.name+'-'+c.name;f('Profundidad de vista (m)','sec','depth',c.depth||15,{full:1});A.push(['secview','Ver corte'],['del','Eliminar','dng'])}
+  else if(sel.t==='section'&&curSection()){const c=curSection();t='Corte '+c.name+'-'+c.name;f('Profundidad','sec','depth',c.depth||15,{full:1});A.push(['secview','Ver corte'],['del','Eliminar','dng'])}
   else return null;
   return{t,F,A,info}}
+function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1;
+  const x=`<div class="seg">${REFS.map(([k,n])=>`<button data-pc="wref" data-v="${k}" aria-pressed="${r===k}" title="Medidas por ${n.toLowerCase()}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
+   <div class="cap">Espesor (m)</div><div class="chips">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="${Math.abs(t-v)<1e-6?'on':''}" data-pc="wt" data-v="${v}">${f2(v).replace(/^0/,'')}</button>`).join('')}</div>
+   <div class="cap">Redondear el largo a</div><div class="chips">${[[.01,'1 cm'],[.05,'5 cm'],[.1,'10 cm']].map(([v,n])=>`<button class="${Math.abs(st-v)<1e-6?'on':''}" data-pc="ws" data-v="${v}">${n}</button>`).join('')}</div>`;
+  return{t:'Muro nuevo',F:[],A:[],info:'',extra:x,key:'muro'+r+t+st}}
+const AICO={del:'borrar',dup:'dup',rot90:'rot','tool:puerta':'puerta','tool:ventana':'ventana'};
 function renderProps(){const box=$('#props');if(!box)return;
-  const m=(view.mode==='planta'||view.mode==='alzados')&&!view.pick&&propsHide!==selKey()?propsModel():null;
+  const ok=(view.mode==='planta'||view.mode==='alzados')&&!view.pick;
+  const m=ok&&view.mode==='planta'&&view.tool==='muro'?(propsHide==='muro'?null:wallToolModel()):ok&&propsHide!==selKey()?propsModel():null;
   if(!m){box.hidden=true;propsSig='';return}
   box.classList.toggle('ghost',!!drag);
-  const sig=selKey()+'|'+m.t+'|'+m.F.map(f=>f.o+'.'+f.k).join(',')+'|'+m.A.map(a=>a[0]+a[1]).join(',');
+  const sig=(m.key||selKey())+'|'+m.t+'|'+m.F.map(f=>f.o+'.'+f.k).join(',')+'|'+m.A.map(a=>a[0]+a[1]).join(',');
   if(sig===propsSig&&!box.hidden){const ins=box.querySelectorAll('input');m.F.forEach((f,i)=>{const n=ins[i];if(n&&n!==document.activeElement){n.value=pfv(f);n.placeholder=f.ph||''}});box.querySelector('.info').innerHTML=m.info;return}
   box.innerHTML=`<div class="ph"><span class="grip" aria-hidden="true">⋮⋮</span><b>${esc(m.t)}</b><button data-pc="more" title="Ver todos los datos en el panel" aria-label="Todos los datos">⋯</button><button data-pc="close" title="Cerrar este cuadro" aria-label="Cerrar">×</button></div>
-   <div class="pb">${m.F.map(pfHTML).join('')}<div class="info">${m.info}</div></div>${m.A.length?`<div class="pa">${m.A.map(a=>`<button class="btn sm ${a[2]||''}" data-pc="${a[0]}">${a[1]}</button>`).join('')}</div>`:''}`;
+   <div class="pb">${m.F.map(pfHTML).join('')}${m.extra||''}<div class="info">${m.info}</div></div>${m.A.length?`<div class="pa">${m.A.map(a=>AICO[a[0]]?`<button class="ib ${a[2]||''}" data-pc="${a[0]}" title="${esc(a[1])}" aria-label="${esc(a[1])}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICO[AICO[a[0]]]}</svg></button>`:`<button class="tb ${a[2]||''}" data-pc="${a[0]}">${a[1]}</button>`).join('')}</div>`:''}`;
   box.hidden=false;propsSig=sig;placeProps()}
 function placeProps(){const box=$('#props');if(box.hidden)return;const st=$('#stage').getBoundingClientRect();let pos=null;try{pos=JSON.parse(lsGet('lev.propsPos')||'null')}catch(e){}
   const w=box.offsetWidth||300,h=box.offsetHeight||220,ch=$('#chip'),cb=ch&&!ch.hidden?ch.getBoundingClientRect().bottom-st.top+10:0;let x=pos?pos.x:st.width-w-42,y=pos?pos.y:Math.max(68,cb);
   x=clamp(x,8,Math.max(8,st.width-w-8));y=clamp(y,8,Math.max(8,st.height-Math.min(h,st.height-16)-8));box.style.left=x+'px';box.style.top=y+'px'}
 window.addEventListener('resize',()=>placeProps());
-{const box=$('#props');let pd=null;
+{const box=$('#props');let pd=null,actT=null;const wake=()=>{box.classList.add('on');clearTimeout(actT);actT=setTimeout(()=>box.classList.remove('on'),2500)};box.addEventListener('pointerdown',wake,true);box.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')wake()});
   box.addEventListener('pointerdown',e=>{if(!e.target.closest('.ph')||e.target.closest('button'))return;e.preventDefault();box.setPointerCapture(e.pointerId);pd={id:e.pointerId,x:e.clientX,y:e.clientY,l:box.offsetLeft,t:box.offsetTop}});
   box.addEventListener('pointermove',e=>{if(!pd||pd.id!==e.pointerId)return;const st=$('#stage').getBoundingClientRect();box.style.left=clamp(pd.l+e.clientX-pd.x,8,st.width-box.offsetWidth-8)+'px';box.style.top=clamp(pd.t+e.clientY-pd.y,8,st.height-50)+'px'});
   const up=e=>{if(!pd||pd.id!==e.pointerId)return;pd=null;lsSet('lev.propsPos',JSON.stringify({x:box.offsetLeft,y:box.offsetTop}))};
   box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up);
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
-    if(c==='close'){propsHide=selKey();renderProps();toast('Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
+    if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
+    if(c==='wref'){view.wallRef=b.dataset.v;lsSet('lev.wallRef',view.wallRef);const cs=chainSpace();if(cs){pushUndo();cs.ref=view.wallRef;saved();renderAll()}renderProps();return}
+    if(c==='wt'){trace.t=+b.dataset.v;renderProps();return}
+    if(c==='ws'){view.wallStep=+b.dataset.v;lsSet('lev.wallStep',String(view.wallStep));renderProps();return}
     if(c==='more'){setPanel(true);return}
     if(c==='anc'){view.anchor=b.dataset.v;lsSet('lev.anchor',view.anchor);renderProps();draw2D();return}
     if(c==='del'){deleteSel();return}

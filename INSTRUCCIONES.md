@@ -69,7 +69,7 @@ Con el iPad conectado:
 
 - **El lápiz dibuja y arrastra. El dedo mueve el plano**, y con dos dedos se hace zoom. Si no tienes el lápiz a mano, activa **Dedo** en la barra.
 - **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
-- **Cara de medición (como la línea de referencia de ArchiCAD):** al tocar **Muro** se abre un panel donde eliges si tus medidas son por la **cara interior**, el **eje** o la **cara exterior** del muro, y el espesor.
+- **Cara de medición (como la línea de referencia de ArchiCAD):** al tocar **Muro** aparece el cuadro flotante **Muro nuevo**. Ahí eliges con los dibujos si tus medidas son por la **cara interior**, el **eje** o la **cara exterior**, el espesor y el redondeo del largo.
   - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
   - En un espacio ya hecho se cambia en **Datos → Medidas tomadas por**.
   - Las distancias de puertas y ventanas se miden desde la esquina de esa misma cara.
@@ -121,7 +121,7 @@ Con el iPad conectado:
 - **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
 - **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
 - **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
-- **Cuadro de medidas flotante:** al tocar cualquier muro, puerta, ventana, elemento, losa, escalera, cubierta o espacio aparece un cuadro con sus medidas (ancho, alto, espesor, antepecho…).
+- **Cuadro de medidas flotante** (queda medio transparente mientras no lo usas; al tocarlo se ve completo): al tocar cualquier muro, puerta, ventana, elemento, losa, escalera, cubierta o espacio aparece un cuadro con sus medidas (ancho, alto, espesor, antepecho…).
   - Toca una casilla: queda vacía y escribes el número encima con el lápiz. Si no escribes nada, vuelve el valor anterior.
   - Con Enter (o al tocar otra casilla) se aplica y pasa a la siguiente.
   - Arrástralo de su barra oscura para ponerlo donde no estorbe; la app recuerda el sitio. La × lo cierra hasta que toques otro elemento y los tres puntos abren todos los datos en el panel.
