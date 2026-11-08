@@ -117,7 +117,21 @@ Con el iPad conectado:
 - **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
 - **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
 - **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
-- **Datos:** el botón de arriba abre el panel con toda la información del elemento seleccionado.
+- **Cuadro de medidas flotante:** al tocar cualquier muro, puerta, ventana, elemento, losa, escalera, cubierta o espacio aparece un cuadro con sus medidas (ancho, alto, espesor, antepecho…).
+  - Toca una casilla: queda vacía y escribes el número encima con el lápiz. Si no escribes nada, vuelve el valor anterior.
+  - Con Enter (o al tocar otra casilla) se aplica y pasa a la siguiente.
+  - Arrástralo de su barra oscura para ponerlo donde no estorbe; la app recuerda el sitio. La × lo cierra hasta que toques otro elemento y los tres puntos abren todos los datos en el panel.
+- **Menú rápido del lápiz:** deja el lápiz quieto sobre el plano medio segundo (o apriétalo fuerte) y sale un menú en círculo.
+  - Sobre un elemento: Medidas, Largo, Girar, Duplicar, Tipo, Puerta, Ventana, Deshacer y Eliminar, según lo que sea.
+  - En un sitio vacío: cambiar de herramienta, Deshacer y Ajustar vista.
+  - Desliza el lápiz hacia la opción y suéltalo, o suéltalo en el centro y toca la opción.
+  - Mientras dibujas muros, cubiertas, losas, cortes o escaleras hay que sostenerlo un poco más (casi un segundo), para que no salga sin querer.
+- **Borrar:** la herramienta **Borrar** (la goma, debajo de Mover).
+  - Toca lo que quieras borrar.
+  - O pasa el lápiz por encima de varios muros, puertas, ventanas y elementos: se marcan en rojo y se borran todos al levantar el lápiz.
+  - Al borrar un muro los demás se quedan en su sitio, como en ArchiCAD.
+  - Si te equivocas, ↶ deshace. Con teclado, la tecla Suprimir borra lo seleccionado.
+- **Panel de datos:** se muestra y se oculta con el botón **Panel** de arriba o con la pestaña **‹ ›** del borde derecho. Viene oculto para dejar todo el espacio al plano.
 
 ## Uso diario sin internet
 
