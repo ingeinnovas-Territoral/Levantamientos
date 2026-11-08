@@ -69,7 +69,12 @@ Con el iPad conectado:
 
 - **El lápiz dibuja y arrastra. El dedo mueve el plano**, y con dos dedos se hace zoom. Si no tienes el lápiz a mano, activa **Dedo** en la barra.
 - **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
-- **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK. Los muros de al lado se acomodan solos.
+- **Cara de medición (como la línea de referencia de ArchiCAD):** al tocar **Muro** se abre un panel donde eliges si tus medidas son por la **cara interior**, el **eje** o la **cara exterior** del muro, y el espesor.
+  - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
+  - En un espacio ya hecho se cambia en **Datos → Medidas tomadas por**.
+  - Las distancias de puertas y ventanas se miden desde la esquina de esa misma cara.
+- **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK.
+  - Antes, elige **Fija inicio** o **Fija final**: esa esquina se queda quieta (cuadrito naranja) y el muro crece hacia la otra. Todo lo que está más allá de la esquina libre se corre con ella, como estirar en ArchiCAD.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
 - **Cubierta:** al tocar la herramienta eliges la forma y la dibujas con el lápiz.
   - **Rectangular, bóveda o anillo/estadio:** arrastra de una esquina a la otra.

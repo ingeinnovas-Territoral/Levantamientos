@@ -194,9 +194,10 @@ main.nopanel aside{display:none}
       <div class="elpal" id="roofpal" hidden></div>
       <div class="elpal" id="oppal" hidden></div>
       <div class="elpal" id="stairpal" hidden></div>
+      <div class="elpal" id="wallpal" hidden></div>
       <div class="elpal" id="slabpal" hidden></div>
       <div class="chip" id="chip" hidden></div>
-      <div class="qedit" id="qedit" hidden><input id="qIn" inputmode="decimal" autocomplete="off" aria-label="Nueva medida"><span id="qUnit">m</span><button class="btn pri sm" id="qOk">OK</button></div>
+      <div class="qedit" id="qedit" hidden><input id="qIn" inputmode="decimal" autocomplete="off" aria-label="Nueva medida"><span id="qUnit">m</span><span id="qAnc" class="row-btns" style="gap:3px"><button class="btn sm" data-anc="ini" title="Se queda fija la esquina de inicio">Fija inicio</button><button class="btn sm" data-anc="fin" title="Se queda fija la esquina final">Fija final</button></span><button class="btn pri sm" id="qOk">OK</button></div>
       <div class="tools" id="tools">
         <button class="btn" id="tFit">Ajustar vista</button>
         <select id="tPiso" aria-label="Piso"></select>
@@ -396,16 +397,27 @@ function makeExample(){
 /* ============ geometría ============ */
 function wh(w,s,which){const v=which==='i'?w.hIni:w.hFin;return v==null||v===''?s.h:v}
 function lineX(p,d,q,e){const den=d[0]*e[1]-d[1]*e[0];if(Math.abs(den)<1e-6)return null;const t=((q[0]-p[0])*e[1]-(q[1]-p[1])*e[0])/den;return add(p,mul(d,t))}
+const REFS=[['int','Cara interior'],['eje','Eje del muro'],['ext','Cara exterior']];
+const refName=r=>(REFS.find(x=>x[0]===(r||'int'))||REFS[0])[1];
 function geom(s){
   const W=s.walls,V=[[0,0]];
   W.forEach(w=>{const a=rad(w.ang),p=V[V.length-1];V.push([p[0]+w.len*Math.cos(a),p[1]+w.len*Math.sin(a)])});
-  const n=W.length,closed=!!s.closed&&n>=3;
+  const n=W.length,closed=!!s.closed&&n>=3,ref=s.ref||'int';
   const gap=n?len(V[n]):0;
-  const Pp=closed?V.slice(0,n):V.slice();
-  let A=0;for(let i=0;i<Pp.length;i++){const a=Pp[i],b=Pp[(i+1)%Pp.length];A+=a[0]*b[1]-b[0]*a[1]}A/=2;
+  const Pr=closed?V.slice(0,n):V.slice();
+  let A=0;for(let i=0;i<Pr.length;i++){const a=Pr[i],b=Pr[(i+1)%Pr.length];A+=a[0]*b[1]-b[0]*a[1]}A/=2;
   const ccw=A>=0;
-  const segs=W.map((w,i)=>{const a=V[i],b=(closed&&i===n-1)?V[0]:V[i+1];const dv=sub(b,a);const L=len(dv)||1e-9;const d=[dv[0]/L,dv[1]/L];const nn=ccw?[d[1],-d[0]]:[-d[1],d[0]];
-    return{w,i,a,b,d,n:nn,L,t:w.t||0.0001,oa:add(a,mul(nn,w.t||0)),ob:add(b,mul(nn,w.t||0))}});
+  /* línea de referencia -> cara interior */
+  const R=W.map((w,i)=>{const a=V[i],b=(closed&&i===n-1)?V[0]:V[i+1],dv=sub(b,a),L=len(dv)||1e-9,d=[dv[0]/L,dv[1]/L],nn=ccw?[d[1],-d[0]]:[-d[1],d[0]],t=w.t||0.0001,off=ref==='ext'?t:ref==='eje'?t/2:0;return{a,b,d,nn,L,t,off,ia:sub(a,mul(nn,off))}});
+  let Vi;
+  if(ref==='int'||!n)Vi=V.map(p=>p.slice());
+  else{Vi=[];const X=(r1,r2,fb)=>{const x=lineX(r1.ia,r1.d,r2.ia,r2.d);return x&&len(sub(x,fb))<6*Math.max(r1.t,r2.t)+.05?x:fb};
+    for(let i=0;i<n;i++){const r=R[i];if(i===0){Vi.push(closed?X(R[n-1],r,r.ia):r.ia)}else Vi.push(X(R[i-1],r,r.ia))}
+    Vi.push(closed?Vi[0]:sub(R[n-1].b,mul(R[n-1].nn,R[n-1].off)))}
+  const Pp=closed?Vi.slice(0,n):Vi.slice();
+  let Ai=0;for(let i=0;i<Pp.length;i++){const a=Pp[i],b=Pp[(i+1)%Pp.length];Ai+=a[0]*b[1]-b[0]*a[1]}Ai/=2;
+  const segs=W.map((w,i)=>{const a=Vi[i],b=(closed&&i===n-1)?Vi[0]:Vi[i+1];const dv=sub(b,a);const L=len(dv)||1e-9;const d=R[i].d;const nn=R[i].nn;const r=R[i];
+    return{w,i,a,b,d,n:nn,L,t:w.t||0.0001,oa:add(a,mul(nn,w.t||0)),ob:add(b,mul(nn,w.t||0)),ra:r.a,rb:r.b,refL:r.L,refOff:r.off,s0:(r.a[0]-a[0])*d[0]+(r.a[1]-a[1])*d[1]}});
   const joints=[];
   for(let k=0;k<segs.length;k++){
     const nx=k+1<segs.length?k+1:(closed?0:-1);if(nx<0)break;
@@ -414,10 +426,10 @@ function geom(s){
     if(pt&&len(sub(pt,B1.a))<6*Math.max(A1.t,B1.t)+.05){A1.ob=pt;B1.oa=pt}
     joints.push({p:B1.a,prev:A1,cur:B1,m:B1.oa});
   }
-  let cen;if(closed&&Math.abs(A)>1e-6){let cx=0,cy=0;for(let i=0;i<Pp.length;i++){const a=Pp[i],b=Pp[(i+1)%Pp.length],c=a[0]*b[1]-b[0]*a[1];cx+=(a[0]+b[0])*c;cy+=(a[1]+b[1])*c}cen=[cx/(6*A),cy/(6*A)]}
+  let cen;if(closed&&Math.abs(Ai)>1e-6){let cx=0,cy=0;for(let i=0;i<Pp.length;i++){const a=Pp[i],b=Pp[(i+1)%Pp.length],c=a[0]*b[1]-b[0]*a[1];cx+=(a[0]+b[0])*c;cy+=(a[1]+b[1])*c}cen=[cx/(6*Ai),cy/(6*Ai)]}
   else{cen=Pp.reduce((s,p)=>add(s,p),[0,0]);cen=mul(cen,1/(Pp.length||1))}
   const perim=segs.reduce((s,g)=>s+g.L,0);
-  return{V,P:Pp,segs,joints,closed,gap,area:closed?Math.abs(A):0,ccw,perim,cen,end:V[n]};
+  return{V,Pref:Pr,P:Pp,segs,joints,closed,gap,area:closed?Math.abs(Ai):0,ccw,perim,cen,end:V[n],ref};
 }
 function pieces(sg){
   const ops=sg.w.openings.map(o=>[clamp(o.off,0,sg.L),clamp(o.off+o.w,0,sg.L)]).sort((a,b)=>a[0]-b[0]);
@@ -463,12 +475,12 @@ function planDL(piso,opt={}){
     g.segs.forEach(sg=>{const wSel=interactive&&sel.t==='wall'&&sel.wid===sg.w.id;
       pieces(sg).forEach(q=>dl.push({k:'poly',pts:q.map(T),closed:1,fill:'wall',st:wSel?'sel':'ink',ly:'MUROS'}));
       sg.w.openings.forEach(o=>opPlan(dl,sg,o,T,codes[o.id],wSel));
-      if(sg.L>.05){dimDL(dl,T(sg.a),T(sg.b),R(mul(sg.n,-.42)),f2(sg.L));if(interactive&&!(g.closed&&sg.i===s.walls.length-1))view.dimHits.push({p:T(add(mul(add(sg.a,sg.b),.5),mul(sg.n,-.42))),sid:s.id,wid:sg.w.id,v:sg.w.len})}
-      if(view.dimOps||opt.print)sg.w.openings.forEach(o=>{const s0=clamp(o.off,0,sg.L),s1=clamp(o.off+o.w,0,sg.L);if(s1-s0<.02)return;
-        dimDL(dl,T(add(sg.a,mul(sg.d,s0))),T(add(sg.a,mul(sg.d,s1))),R(mul(sg.n,sg.t+.32)),f2(s1-s0),{mm:1.8});
-        if(s0>.02)dimDL(dl,T(sg.a),T(add(sg.a,mul(sg.d,s0))),R(mul(sg.n,sg.t+.32)),f2(s0),{mm:1.8});
-        if(sg.L-s1>.02)dimDL(dl,T(add(sg.a,mul(sg.d,s1))),T(sg.b),R(mul(sg.n,sg.t+.32)),f2(sg.L-s1),{mm:1.8});
-      });
+      if(sg.refL>.05){const dof=g.ref==='ext'?mul(sg.n,.42):mul(sg.n,-(sg.refOff+.42));dimDL(dl,T(sg.ra),T(sg.rb),R(dof),f2(sg.refL));if(interactive&&!(g.closed&&sg.i===s.walls.length-1))view.dimHits.push({p:T(add(mul(add(sg.ra,sg.rb),.5),dof)),sid:s.id,wid:sg.w.id,v:sg.w.len})}
+      if(view.dimOps||opt.print){const od=R(mul(sg.n,sg.t-sg.refOff+.32)),RP=u=>T(add(sg.ra,mul(sg.d,u)));sg.w.openings.forEach(o=>{const u0=clamp(o.off,0,sg.L)-sg.s0,u1=clamp(o.off+o.w,0,sg.L)-sg.s0;if(u1-u0<.02)return;
+        dimDL(dl,RP(u0),RP(u1),od,f2(u1-u0),{mm:1.8});
+        if(u0>.02)dimDL(dl,RP(0),RP(u0),od,f2(u0),{mm:1.8});
+        if(sg.refL-u1>.02)dimDL(dl,RP(u1),RP(sg.refL),od,f2(sg.refL-u1),{mm:1.8});
+      })}
     });
     const c=T(g.cen);
     if(g.closed){txt(dl,c,s.name||'Espacio',3.1,{bold:1,dy:2.6});
@@ -1046,8 +1058,10 @@ function setTool(t){
   if(view.tool==='muro'&&t!=='muro')endChain();
   if(t==='el'&&view.tool==='el'){$('#elpal').hidden=!$('#elpal').hidden;return}
   if((t==='puerta'||t==='ventana')&&view.tool===t){$('#oppal').hidden=!$('#oppal').hidden;opPalMode='tool';if(!$('#oppal').hidden)renderOpPal(t);return}
+  if(t==='muro'&&view.tool==='muro'){$('#wallpal').hidden=!$('#wallpal').hidden;if(!$('#wallpal').hidden)renderWallPal();return}
   if(t==='cub'&&view.tool==='cub'){$('#roofpal').hidden=!$('#roofpal').hidden;if(!$('#roofpal').hidden)renderRoofPal();return}
   if(t!=='cub')rdraft=null;$('#roofpal').hidden=t!=='cub';if(t==='cub')renderRoofPal();
+  $('#wallpal').hidden=t!=='muro';if(t==='muro')renderWallPal();
   $('#stairpal').hidden=t!=='esc';if(t==='esc')renderStairPal();$('#slabpal').hidden=t!=='losa';if(t==='losa')renderSlabPal();if(t!=='losa')sdraft=null;
   $('#oppal').hidden=!(t==='puerta'||t==='ventana');if(t==='puerta'||t==='ventana'){opPalMode='tool';renderOpPal(t)}
   view.tool=t;if(t==='cub'&&!view.roofs){view.roofs=true;$('#tRoof').classList.add('on');$('#tRoof').setAttribute('aria-pressed','true')}renderRail();$('#elpal').hidden=t!=='el';if(t==='el')renderPal();hideQ();
@@ -1057,6 +1071,10 @@ function setTool(t){
 }
 function renderPal(){const fam=view.fam||(CAT[view.elType]&&CAT[view.elType].fam)||'estructura';view.fam=fam;const items=Object.entries(CAT).filter(([k,c])=>k!=='patologia'&&(c.fam||'otros')===fam);
   $('#elpal').innerHTML='<div class="famtabs" role="tablist">'+FAMS.map(([k,n])=>`<button data-fam="${k}" aria-selected="${k===fam}">${n}</button>`).join('')+'</div><p>Elige y toca en el plano. Lo que va contra la pared se pega solo al muro.</p><div class="palgrid">'+items.map(([k,c])=>`<button data-el="${k}" aria-pressed="${view.elType===k}">${symSVG(k)}<span>${esc(c.n)}</span></button>`).join('')+'</div>'}
+function refIcon(k){const wall='<rect x="6" y="18" width="32" height="9" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>',y=k==='int'?27:k==='ext'?18:22.5;return`<svg viewBox="0 0 44 44" width="44" height="44">${wall}<line x1="3" y1="${y}" x2="41" y2="${y}" stroke="var(--accent)" stroke-width="2.4"/><text x="22" y="40" font-size="7" text-anchor="middle" fill="currentColor">adentro</text><text x="22" y="11" font-size="7" text-anchor="middle" fill="currentColor">afuera</text></svg>`}
+function renderWallPal(){const r=view.wallRef||'int',t=trace.t;$('#wallpal').innerHTML='<p>¿Desde qué cara tomas las medidas? Lo que dibujes o escribas se mide sobre esa cara (línea naranja); el espesor crece hacia el otro lado.</p><div class="palgrid">'+REFS.map(([k,n])=>`<button data-wr="${k}" aria-pressed="${r===k}">${refIcon(k)}<span>${n}</span></button>`).join('')+`</div><p style="margin-top:8px">Espesor del muro</p><div class="row-btns">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="btn sm${Math.abs(t-v)<1e-6?' on':''}" data-wt="${v}">${f2(v)}</button>`).join('')}</div>`}
+$('#wallpal').addEventListener('click',e=>{const b=e.target.closest('[data-wr]');if(b){view.wallRef=b.dataset.wr;lsSet('lev.wallRef',view.wallRef);const cs=chainSpace();if(cs){pushUndo();cs.ref=view.wallRef;saved();renderAll()}renderWallPal();toast('Medidas por '+refName(view.wallRef).toLowerCase());return}const t=e.target.closest('[data-wt]');if(t){trace.t=+t.dataset.wt;renderWallPal();toast('Espesor '+f2(trace.t)+' m')}});
+view.wallRef=lsGet('lev.wallRef')||'int';
 function renderStairPal(){const t=view.stairType||'recta',g=view.stairGiro||'der';$('#stairpal').innerHTML='<p>Tipo de escalera. Arrastra desde el arranque hacia donde sube.</p><div class="palgrid">'+STYPES.map(([k,n])=>`<button data-st="${k}" aria-pressed="${t===k}">${stairIcon(k)}<span>${n}</span></button>`).join('')+`</div><div class="row-btns" style="margin-top:6px"><button class="btn sm${g==='der'?' on':''}" data-sg="der">Gira a la derecha</button><button class="btn sm${g==='izq'?' on':''}" data-sg="izq">Gira a la izquierda</button></div>`}
 function stairIcon(k){const st=newStair({tipo:k,x:0,y:0,rot:90,h:2.8,n:12,ancho:1,huella:.28,giro:'der',diam:1.8}),G=stairGeo(st),dl=[];G.T.forEach(t=>dl.push({k:'poly',pts:t.poly,closed:1,fill:'el',st:'thin'}));G.LD.forEach(l=>dl.push({k:'poly',pts:l.poly,closed:1,fill:'el',st:'thin'}));for(let i=0;i<G.path.length-1;i++)dl.push(L_(G.path[i],G.path[i+1],'ink'));return dlSVG(dl)}
 $('#stairpal').addEventListener('click',e=>{const b=e.target.closest('[data-st]');if(b){view.stairType=b.dataset.st;renderStairPal();const st=curStair();if(st&&sel.t==='stair'){pushUndo();st.tipo=view.stairType;saved();renderAll()}return}const g=e.target.closest('[data-sg]');if(g){view.stairGiro=g.dataset.sg;renderStairPal();const st=curStair();if(st&&sel.t==='stair'){pushUndo();st.giro=view.stairGiro;saved();renderAll()}}});
@@ -1070,12 +1088,12 @@ $('#elpal').addEventListener('click',e=>{const f=e.target.closest('[data-fam]');
 
 /* ---- ajustes (snap) ---- */
 const SNAPPX=14;
-function floorVerts(skip){const out=[];P.spaces.filter(s=>s.piso===view.piso).forEach(s=>{const g=geom(s);(g.closed?g.P:g.V).forEach((p,i)=>{if(skip&&skip(s,i))return;out.push(toW(s,p))})});return out}
+function floorVerts(skip,all){const out=[];P.spaces.filter(s=>s.piso===view.piso).forEach(s=>{const g=geom(s);(g.closed?g.Pref:g.V).forEach((p,i)=>{if(skip&&skip(s,i))return;out.push(toW(s,p))});if(all&&g.ref!=='int'){g.P.forEach(p=>out.push(toW(s,p)))}if(all)g.segs.forEach(sg=>out.push(toW(s,sg.oa)))});return out}
 const r2=v=>Math.round(v*100)/100, r5=v=>Math.round(v*20)/20;
-function snapPt(p,skip){const tol=SNAPPX/view.scale;let best=null,bd=tol;floorVerts(skip).forEach(v=>{const d=len(sub(v,p));if(d<bd){bd=d;best=v}});return best?{p:best.slice(),v:true}:{p:[r5(p[0]),r5(p[1])],v:false}}
+function snapPt(p,skip){const tol=SNAPPX/view.scale;let best=null,bd=tol;floorVerts(skip,!skip).forEach(v=>{const d=len(sub(v,p));if(d<bd){bd=d;best=v}});return best?{p:best.slice(),v:true}:{p:[r5(p[0]),r5(p[1])],v:false}}
 function snapSeg(A,Q){
-  const tol=SNAPPX/view.scale,vs=floorVerts();
-  let vb=null,bd=tol;vs.forEach(v=>{const d=len(sub(v,Q));if(d<bd&&len(sub(v,A))>1e-3){bd=d;vb=v}});
+  const tol=SNAPPX/view.scale,vs=floorVerts(),va=floorVerts(null,true);
+  let vb=null,bd=tol;va.forEach(v=>{const d=len(sub(v,Q));if(d<bd&&len(sub(v,A))>1e-3){bd=d;vb=v}});
   if(vb){const d=sub(vb,A);return{B:vb.slice(),L:r2(len(d)),ang:normA(deg(Math.atan2(d[1],d[0]))),vtx:true}}
   const d=sub(Q,A);let ang=deg(Math.atan2(d[1],d[0]));const rr=Math.round(ang/45)*45,ortho=Math.abs(ang-rr)<8;
   ang=ortho?rr:Math.round(ang*2)/2;const u=[Math.cos(rad(ang)),Math.sin(rad(ang))];
@@ -1100,7 +1118,7 @@ function snapEl(e,p){const ws=wallSnap(e,p);if(ws)return ws;const tol=SNAPPX/vie
 function setVerts(s,fr,V){const n=s.walls.length,closed=s.closed&&n>=3,pts=closed?V.concat([V[0]]):V;
   for(let i=0;i<n;i++){const d=sub(pts[i+1],pts[i]);s.walls[i].len=Math.round(len(d)*1000)/1000;s.walls[i].ang=normA(Math.round(deg(Math.atan2(d[1],d[0]))*100)/100)}
   const o=V[0],r=rad(fr.rot),c=Math.cos(r),si=Math.sin(r);s.x=Math.round((fr.x+o[0]*c-o[1]*si)*1000)/1000;s.y=Math.round((fr.y+o[0]*si+o[1]*c)*1000)/1000}
-function vertsOf(s){const g=geom(s);return(g.closed?g.P:g.V).map(p=>p.slice())}
+function vertsOf(s){const g=geom(s);return(g.closed?g.Pref:g.V).map(p=>p.slice())}
 const frameOf=s=>({x:s.x,y:s.y,rot:s.rot||0});
 const frToL=(fr,p)=>{const r=-rad(fr.rot),c=Math.cos(r),si=Math.sin(r),x=p[0]-fr.x,y=p[1]-fr.y;return[x*c-y*si,x*si+y*c]};
 const frToW=(fr,p)=>{const r=rad(fr.rot),c=Math.cos(r),si=Math.sin(r);return[fr.x+p[0]*c-p[1]*si,fr.y+p[0]*si+p[1]*c]};
@@ -1111,7 +1129,7 @@ function handles(){const H=[];
   if(sel.t==='el'){const e=curEl();if(!e)return H;const c=CAT[e.type]||{};if(c.marker)return H;
     H.push({k:'rot',p:elLocal(e,0,e.d/2+Math.max(.25,26/view.scale))});
     const o=16/view.scale;if(c.circ)H.push({k:'size',p:elLocal(e,e.w/2+o,0)});else H.push({k:'size',p:elLocal(e,e.w/2+o*.7,-e.d/2-o*.7)})}
-  if(sel.t==='space'||sel.t==='wall'){const s=curSpace();if(!s)return H;const g=geom(s),pts=g.closed?g.P:g.V;let idx=pts.map((_,i)=>i);
+  if(sel.t==='space'||sel.t==='wall'){const s=curSpace();if(!s)return H;const g=geom(s),pts=g.closed?g.Pref:g.V;let idx=pts.map((_,i)=>i);
     if(sel.t==='wall'){const i=s.walls.findIndex(w=>w.id===sel.wid);idx=[i,g.closed?(i+1)%pts.length:i+1]}
     idx.forEach(i=>{if(pts[i])H.push({k:'vtx',i,p:toW(s,pts[i])})})}
   if(sel.t==='roof'){const r=curRoof();if(!r)return H;return roofHandles(r)}
@@ -1157,7 +1175,7 @@ function dragApply(d,q){
       if(d.kind==='op'){o.off=r2(clamp(al-d.grab,0,Math.max(0,sg.L-o.w)))}
       else if(d.kind==='opA'){const end=o.off+o.w;const a=r2(clamp(al,0,end-.1));o.off=a;o.w=r2(end-a)}
       else{o.w=r2(clamp(al-o.off,.1,sg.L-o.off))}
-      live={p:q,t:'a '+f2(o.off)+' · ancho '+f2(o.w)+' · resto '+f2(Math.max(0,sg.L-o.off-o.w))};break}
+      live={p:q,t:'a '+f2(o.off-sg.s0)+' · ancho '+f2(o.w)+' · resto '+f2(Math.max(0,sg.refL-(o.off-sg.s0)-o.w))};break}
     case 'eop':{const o=d.obj,o0=d.o0,du=dl[0],dv=dl[1],m=d.mir;let off=o0.off,w=o0.w,h=o0.h,sill=o0.sill;
       if(d.edge==='M'){off=o0.off+(m?-du:du);sill=o0.sill+dv}
       else if(d.edge==='L'){if(m)w=o0.w-du;else{off=o0.off+du;w=o0.w-du}}
@@ -1233,7 +1251,7 @@ function muroMove(d,q){d.prev=snapSeg(d.A,q);const sg=d.prev;let t=f2(sg.L)+' m'
   if(d.s&&d.s.walls.length>=2&&len(sub(sg.B,toW(d.s,[0,0])))<.005)t+=' · cierra';live={p:q,t}}
 function muroUp(d){const sg=d.prev;live=null;if(!sg||sg.L<.05){return false}
   let s=d.s;
-  if(!s){const ex=P.spaces.filter(z=>z.piso===view.piso);s=newSpace('',r2(d.A[0]),r2(d.A[1]),view.piso,ex[0]?ex[0].npt:0);P.spaces.push(s);drawSid=s.id}
+  if(!s){const ex=P.spaces.filter(z=>z.piso===view.piso);s=newSpace('',r2(d.A[0]),r2(d.A[1]),view.piso,ex[0]?ex[0].npt:0);s.ref=view.wallRef||'int';P.spaces.push(s);drawSid=s.id}
   s.walls.push(newWall(sg.L,normA(sg.ang-(s.rot||0)),trace.t));trace.dir=normA(sg.ang-(s.rot||0)+90);
   if(s.walls.length>=3&&len(sub(sg.B,toW(s,[0,0])))<.01){if(!s.name)s.name=nextSpaceName();s.closed=true;drawSid=null;sel={t:'space',sid:s.id};toast(s.name+' cerrado · '+f2(geom(s).area)+' m²')}
   else sel={t:'space',sid:s.id};
@@ -1336,6 +1354,7 @@ function drawOverlay(tf){
    if(sdraft&&view.tool==='losa'){const pv=sdraft.pts.concat(drag&&drag.kind==='spt'&&drag.B?[drag.B]:[]);c.beginPath();pv.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.setLineDash([7,5]);c.strokeStyle=COL.accent;c.lineWidth=2;c.stroke();c.setLineDash([]);sdraft.pts.forEach((q,i)=>dot(q,i?5:7,i?COL.accent:COL.panel,COL.accent))}
   if(rdraft&&view.tool==='cub')rdraft.forEach((q,i)=>dot(q,i?5:7,i?COL.accent:COL.panel,COL.accent))}
   if(sel.t==='roof'&&view.tool==='sel'&&curRoof()&&curRoof().forma==='poligono'&&sel.edge!=null){const r=curRoof(),a=tf(...r.pts[sel.edge]),b=tf(...r.pts[(sel.edge+1)%r.pts.length]);c.strokeStyle=COL.accent;c.lineWidth=6;c.lineCap='round';c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}
+  if(qTarget&&qTarget.wid&&!$('#qedit').hidden){const s=P.spaces.find(z=>z.id===qTarget.sid);if(s){const g=geom(s),sg=g.segs.find(x=>x.w.id===qTarget.wid);if(sg){const fx=toW(s,(view.anchor||'ini')==='ini'?sg.ra:sg.rb),mv=toW(s,(view.anchor||'ini')==='ini'?sg.rb:sg.ra);const a=tf(...fx);c.fillStyle=COL.accent;c.fillRect(a[0]-7,a[1]-7,14,14);dot(mv,6,COL.panel,COL.accent);label(fx,'fija')}}}
   if(live)label(live.p,live.t);
   c.restore();
 }
@@ -1352,7 +1371,7 @@ function renderChip(){const ch=$('#chip');let h='';if(sel.t!=='space'&&sel.t!=='
   if(view.pick){const g=pickPreview();h=view.pick.naming?`<span class="num">Nombre:</span><input id="zNameIn" value="${esc(view.pick.name||nextSpaceName())}" aria-label="Nombre del espacio" style="width:180px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="zsave">Guardar</button><button class="btn sm" data-c="zcancel">Cancelar</button>`:`<b>Elige los muros</b><span class="num">${view.pick.ids.length} muros${g.pts.length>=3?' · '+f2(g.area)+' m²':''}</span><button class="btn sm acc" data-c="zdone" ${view.pick.ids.length<2?'disabled':''}>Listo</button><button class="btn sm" data-c="zcancel">Cancelar</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(sel.t==='zone'&&curZone()&&chipRen){const z=curZone();h=`<input id="sRenIn" value="${esc(z.name)}" aria-label="Nombre del espacio" style="width:190px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="srenok">Guardar</button><button class="btn sm" data-c="srencancel">Cancelar</button>`;ch.innerHTML=h;ch.hidden=false;return}
   if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);h=`<b>${esc(z.name)}</b><span class="num">${f2(g.area)} m² · h ${f2(z.h)}</span><button class="btn sm" data-c="sren">Renombrar</button><button class="btn sm" data-c="zwalls">Muros</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`;ch.innerHTML=h;ch.hidden=false;return}
-  if(view.tool==='muro'&&cs&&cs.walls.length){const g=geom(cs);h=`<b>${esc(cs.name)}</b><span class="num">${cs.walls.length} muros · faltan ${f2(g.gap)} m</span>${cs.walls.length>=2?'<button class="btn sm acc" data-c="close">Cerrar</button>':''}<button class="btn sm" data-c="undowall">Quitar último</button><button class="btn sm" data-c="end">Terminar</button>`}
+  if(view.tool==='muro'&&cs&&cs.walls.length){const g=geom(cs);h=`<b>Muros</b><span class="num">${cs.walls.length} · por ${refName(cs.ref).toLowerCase()} · faltan ${f2(g.gap)} m</span>${cs.walls.length>=2?'<button class="btn sm acc" data-c="close">Cerrar</button>':''}<button class="btn sm" data-c="undowall">Quitar último</button><button class="btn sm" data-c="end">Terminar</button>`}
   else if(sel.t==='el'&&curEl()){const e=curEl(),c=CAT[e.type]||CAT.mueble;h=`<b>${esc(c.n)}</b><span class="num">${c.marker?esc(e.pat):(c.circ?'Ø '+f2(e.w):f2(e.w)+'×'+f2(e.d))+' · h '+f2(e.h)}</span>${c.marker?'':'<button class="btn sm" data-c="rot90">Girar 90°</button>'}<button class="btn sm" data-c="dup">Duplicar</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='slab'&&curSlab()){const sl=curSlab();h=`<b>${slabCodes()[sl.id]}</b><span class="num">${f2(slabArea(sl))} m² · e ${f2(sl.esp)}</span><button class="btn sm" data-c="slesp">Espesor</button><button class="btn sm" data-c="slz">Nivel ${f2(sl.z)}</button><button class="btn sm" data-c="slhole">+ Vacío</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='stair'&&curStair()){const st=curStair(),b=blondel(st);h=`<b>${stairCodes()[st.id]}</b><span class="num">${st.n} c.h. ${f2(b.ch)} · h ${f2(st.huella)}</span>`+STYPES.map(([k,n])=>`<button class="btn sm${st.tipo===k?' on':''}" data-c="stt" data-v="${k}">${n}</button>`).join('')+`${st.tipo!=='recta'?`<button class="btn sm" data-c="stg">${st.giro==='izq'?'Gira izq.':'Gira der.'}</button>`:''}<button class="btn sm" data-c="stn">Pasos</button><button class="btn sm" data-c="sta">Ancho ${f2(st.ancho)}</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
@@ -1362,9 +1381,9 @@ function renderChip(){const ch=$('#chip');let h='';if(sel.t!=='space'&&sel.t!=='
     else if(r.forma==='poligono'){const n=r.pts.length,k=r.plana?0:r.edges.filter(e=>!e.g).length;h=`<b>${code}</b><span class="num">${roofType(r)}</span>`+(n===4?[['plana','Plana'],['una','1 agua'],['dos','2 aguas'],['cuatro','4 aguas']]:[['plana','Plana'],['todas','Todas en agua']]).map(([kk,nn])=>`<button class="btn sm" data-c="rt" data-v="${kk}">${nn}</button>`).join('')+(k?`<button class="btn sm" data-c="rpend">${roofPendT(r)}</button>`:'')+(n===4&&(k===1||k===2)?'<button class="btn sm" data-c="rdir">Girar caída</button>':'')+'<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>'}
     else{h=`<b>${code}</b><span class="num">${roofType(r)}</span>`+(r.forma==='estadio'?`<button class="btn sm" data-c="rpend">${fc(r.pend)} %</button><button class="btn sm" data-c="rcaida">${r.caida==='afuera'?'Cae hacia afuera':'Cae hacia adentro'}</button><button class="btn sm" data-c="rancho">Anillo ${f2(r.ancho)} m</button>`:`<button class="btn sm" data-c="rrise">Flecha ${f2(r.rise)} m</button>`)+'<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>'}}
   else if(sel.t==='op'&&curOp()){const o=curOp(),code=opCodes()[o.id];h=`<b>${code}</b><span class="num">${f2(o.w)}×${f2(o.h)}${o.sill?' · ant. '+f2(o.sill):''}</span>${o.type!=='vano'?`<button class="btn sm" data-c="otype">${opSubName(o)} ▾</button>`:''}${o.type==='puerta'?'<button class="btn sm" data-c="hinge">Bisagra</button><button class="btn sm" data-c="swing">'+(o.swing==='ext'?'Abre afuera':'Abre adentro')+'</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
-  else if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w);h=`<b>M${i+1}</b><span class="num">${f2(geom(s).segs[i].L)} m · h ${f2(wh(w,s,'i'))}${wh(w,s,'i')!==wh(w,s,'f')?'→'+f2(wh(w,s,'f')):''}</span><button class="btn sm" data-c="len">Medida</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
+  else if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w);h=`<b>M${i+1}</b><span class="num">${f2(geom(s).segs[i].refL)} m (${refName(s.ref).toLowerCase()}) · h ${f2(wh(w,s,'i'))}${wh(w,s,'i')!==wh(w,s,'f')?'→'+f2(wh(w,s,'f')):''}</span><button class="btn sm" data-c="len">Medida</button><button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   else if(sel.t==='space'&&curSpace()&&chipRen){const s=curSpace();h=`<input id="sRenIn" value="${esc(s.name)}" aria-label="Nombre del espacio" style="width:190px;font-size:16px;padding:6px 8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-c="srenok">Guardar</button><button class="btn sm" data-c="srencancel">Cancelar</button>`}
-  else if(sel.t==='space'&&curSpace()){const s=curSpace(),g=geom(s);h=g.closed?`<b>${esc(spName(s))}</b><span class="num">${f2(g.area)} m² · h ${f2(s.h)}</span><button class="btn sm" data-c="sren">Renombrar</button>`:`<b>Muros abiertos</b><span class="num">${s.walls.length} muros · faltan ${f2(g.gap)} m</span>${s.walls.length?'<button class="btn sm" data-c="cont">Seguir dibujando</button>':''}${s.walls.length>=2?'<button class="btn sm" data-c="sclose">Cerrar</button>':''}<button class="btn sm acc" data-c="mkzone">Convertir en espacio</button>`;h+=`${g.closed?'<button class="btn sm" data-c="rcover">Cubierta</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
+  else if(sel.t==='space'&&curSpace()){const s=curSpace(),g=geom(s);h=g.closed?`<b>${esc(spName(s))}</b><span class="num">${f2(g.area)} m² · h ${f2(s.h)} · medidas por ${refName(s.ref).toLowerCase()}</span><button class="btn sm" data-c="sren">Renombrar</button>`:`<b>Muros abiertos</b><span class="num">${s.walls.length} muros · faltan ${f2(g.gap)} m</span>${s.walls.length?'<button class="btn sm" data-c="cont">Seguir dibujando</button>':''}${s.walls.length>=2?'<button class="btn sm" data-c="sclose">Cerrar</button>':''}<button class="btn sm acc" data-c="mkzone">Convertir en espacio</button>`;h+=`${g.closed?'<button class="btn sm" data-c="rcover">Cubierta</button>':''}<button class="btn sm dng" data-c="del">Eliminar</button><button class="btn sm" data-c="more">Datos</button>`}
   ch.innerHTML=h;ch.hidden=!h;
 }
 $('#chip').addEventListener('keydown',e=>{if(e.target.id==='zNameIn'&&e.key==='Enter'){e.preventDefault();saveZone();return}if(e.target.id==='sRenIn'){if(e.key==='Enter'){e.preventDefault();saveSpaceName()}if(e.key==='Escape'){chipRen=false;renderChip()}}});
@@ -1421,7 +1440,7 @@ $('#chip').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(
 
 /* ---- editar medida tocando la cota ---- */
 let qTarget=null;
-function openQ(h,x,y){const st=$('#stage').getBoundingClientRect(),q=$('#qedit');qTarget=h;$('#qIn').value=f2(h.v);$('#qUnit').textContent=h.unit||'m';q.hidden=false;
+function openQ(h,x,y){const st=$('#stage').getBoundingClientRect(),q=$('#qedit');qTarget=h;$('#qIn').value=f2(h.v);$('#qUnit').textContent=h.unit||'m';$('#qAnc').hidden=!h.wid;markAnc();q.hidden=false;
   const qw=q.offsetWidth||190;q.style.left=clamp(x-st.left-qw/2,8,st.width-qw-8)+'px';q.style.top=clamp(y-st.top-70,8,st.height-60)+'px';setTimeout(()=>{$('#qIn').focus();$('#qIn').select()},20)}
 function hideQ(){const q=$('#qedit');if(q)q.hidden=true;qTarget=null}
 function applyQ(){if(!qTarget)return;const raw=$('#qIn').value;let v=num(raw,NaN);if(isNaN(v)||v<0||(v===0&&!qTarget.apply)){toast('Escribe la medida, por ejemplo 3.45');return}
@@ -1429,10 +1448,15 @@ function applyQ(){if(!qTarget)return;const raw=$('#qIn').value;let v=num(raw,NaN
   if(/mm/i.test(raw))v/=1000;else if(/cm/i.test(raw))v/=100;
   const s=P.spaces.find(z=>z.id===qTarget.sid),w=s&&s.walls.find(z=>z.id===qTarget.wid);if(!w){hideQ();return}
   pushUndo();const i=s.walls.indexOf(w),g0=geom(s);
-  if(g0.closed&&i<s.walls.length-1){const V=vertsOf(s),dlt=v-g0.segs[i].L,d=g0.segs[i].d;for(let k=i+1;k<V.length;k++)V[k]=add(V[k],mul(d,dlt));setVerts(s,frameOf(s),V)}
-  else w.len=Math.round(v*1000)/1000;
+  const anc=view.anchor||'ini',sg0=g0.segs[i],dlt=v-sg0.refL,d=sg0.d,V=vertsOf(s),a0=sg0.ra,eps=1e-3;
+  /* estirar como en ArchiCAD: se mueve todo lo que queda más allá de la esquina libre */
+  V.forEach((q,k)=>{const pr=(q[0]-a0[0])*d[0]+(q[1]-a0[1])*d[1];if(anc==='ini'?pr>=sg0.refL-eps:pr<=eps)V[k]=anc==='ini'?add(q,mul(d,dlt)):sub(q,mul(d,dlt))});
+  setVerts(s,frameOf(s),V);
   sel={t:'wall',sid:s.id,wid:w.id};saved();hideQ();renderAll();
   const g=geom(s);if(g.closed&&g.gap>.005)toast('El cierre se ajusta solo: error '+fc(g.gap*100)+' cm')}
+function markAnc(){document.querySelectorAll('#qAnc [data-anc]').forEach(b=>b.classList.toggle('on',b.dataset.anc===(view.anchor||'ini')));draw2D()}
+$('#qAnc').addEventListener('click',e=>{const b=e.target.closest('[data-anc]');if(!b)return;view.anchor=b.dataset.anc;lsSet('lev.anchor',view.anchor);markAnc();$('#qIn').focus()});
+view.anchor=lsGet('lev.anchor')||'ini';
 $('#qOk').onclick=applyQ;$('#qIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyQ()}if(e.key==='Escape')hideQ()});
 
 /* ---- panel de datos ---- */
@@ -1528,6 +1552,7 @@ function inspSpace(){
   <div class="sec"><h3>Muros</h3>${s.walls.length?`<div class="list">${s.walls.map((w,i)=>`<button class="row" data-a="selWall" data-v="${w.id}"><span class="code">M${i+1}</span><span>${f2(w.len)} m · ${dirName(w.ang)}${w.openings.length?' · '+w.openings.length+' vano'+(w.openings.length>1?'s':''):''}</span><span class="num">h ${f2(wh(w,s,'i'))}${wh(w,s,'i')!==wh(w,s,'f')?'→'+f2(wh(w,s,'f')):''}</span></button>`).join('')}</div>`:'<p class="hint">Sin muros todavía.</p>'}</div>
   <div class="sec"><h3>Datos del espacio</h3>
     ${F('Nombre','space','name',s.name,'text')}
+    ${SL('Medidas tomadas por','space','ref',s.ref||'int',REFS)}
     <div class="grid3">${F('Piso n.º','space','piso',s.piso,'int')}${F('NPT (m)','space','npt',s.npt)}${F('Altura libre','space','h',s.h)}</div>
     <div class="grid3">${F('X (m)','space','x',s.x)}${F('Y (m)','space','y',s.y)}${F('Giro (°)','space','rot',s.rot)}</div>
     <div class="grid2">${F('Piso acabado','space','pisoAcab',s.pisoAcab,'text')}${F('Cielo raso','space','cielo',s.cielo,'text')}</div>
@@ -1543,7 +1568,7 @@ function dirName(a){a=normA(a);const m={0:'Este',90:'Norte',180:'Oeste',270:'Sur
 function inspWall(){
   const s=curSpace(),w=curWall(),i=s.walls.indexOf(w),g=geom(s),sg=g.segs[i],codes=opCodes();
   const hI=wh(w,s,'i'),hF=wh(w,s,'f');const area=sg.L*(hI+hF)/2,opA=w.openings.reduce((a,o)=>a+Math.max(0,Math.min(o.w,sg.L))*o.h,0);
-  return `<div><span class="eyebrow">Muro M${i+1} · ${esc(s.name)}</span><h2>${f2(sg.L)} m hacia el ${dirName(w.ang).toLowerCase()}</h2></div>
+  return `<div><span class="eyebrow">Muro M${i+1} · ${esc(s.name)}</span><h2>${f2(sg.refL)} m hacia el ${dirName(w.ang).toLowerCase()}</h2><span class="hint">Medido por ${refName(s.ref).toLowerCase()}${(s.ref||'int')!=='int'?' · cara interior '+f2(sg.L)+' m':''}</span></div>
   <div class="stats"><div><small>Área bruta</small><b>${f2(area)}</b></div><div><small>Vanos</small><b>${f2(opA)}</b></div><div><small>Área neta</small><b>${f2(area-opA)}</b></div></div>
   ${g.closed&&i===s.walls.length-1&&Math.abs(sg.L-w.len)>.005?`<p class="warn">Medido ${f2(w.len)} m; el cierre lo dibuja de ${f2(sg.L)} m.</p>`:''}
   <div class="sec"><h3>Medidas</h3>
@@ -1556,7 +1581,7 @@ function inspWall(){
   <div class="sec"><h3>Puertas, ventanas y vanos</h3>
     ${w.openings.map(o=>`<div class="opcard"><header><span class="code">${codes[o.id]} · ${o.type}</span><button class="btn sm dng" data-a="delOp" data-v="${o.id}">Quitar</button></header>
       ${o.type!=='vano'?SL('Tipo','op:'+o.id,'sub',opSubOf(o),OPSUB[o.type].map(x=>[x[0],x[1]])):''}
-      <div class="grid3">${F('Desde inicio','op:'+o.id,'off',o.off)}${F('Ancho','op:'+o.id,'w',o.w)}${F('Alto','op:'+o.id,'h',o.h)}</div>
+      <div class="grid3">${F('Desde la esquina','op:'+o.id,'off',r2(o.off-sg.s0))}${F('Ancho','op:'+o.id,'w',o.w)}${F('Alto','op:'+o.id,'h',o.h)}</div>
       <div class="grid3">${F('Antepecho','op:'+o.id,'sill',o.sill)}${o.type==='puerta'?SL('Bisagra','op:'+o.id,'hinge',o.hinge,[['ini','Lado inicio'],['fin','Lado final']])+SL('Abre hacia','op:'+o.id,'swing',o.swing,[['int','Adentro'],['ext','Afuera']]):''}</div>
       ${F('Material / nota','op:'+o.id,'mat',o.mat,'text','placeholder="Madera, aluminio, reja…"')}</div>`).join('')}
     <div class="row-btns"><button class="btn" data-a="addOp" data-v="puerta">+ Puerta</button><button class="btn" data-a="addOp" data-v="ventana">+ Ventana</button><button class="btn" data-a="addOp" data-v="vano">+ Vano</button></div>
@@ -1587,6 +1612,7 @@ insp.addEventListener('change',e=>{const el=e.target;
   if(t==='int'){v=Math.max(1,Math.round(num(v,1)))}
   if(k==='ang'||k==='rot')v=normA(v);
   if(['len','t','w','h','d'].includes(k)&&v!=null&&v<0)v=Math.abs(v);
+  if(el.dataset.o.startsWith('op:')&&k==='off'){const sp=curSpace(),wl=curWall();if(sp&&wl){const sg=geom(sp).segs[sp.walls.indexOf(wl)];v=r2(v+sg.s0)}}
   pushUndo();obj[k]=v;
   if(el.dataset.o==='el'&&k==='type'){const c=CAT[v];Object.assign(obj,{w:c.w,d:c.d,h:c.h,z:c.z})}
   if(el.dataset.o==='space'&&k==='piso'){view.piso=v}
@@ -1616,7 +1642,7 @@ function act(a,v){
     case 'selSpace':{const sp=P.spaces.find(x=>x.id===v);sel={t:'space',sid:v};if(sp&&sp.piso!==view.piso){view.piso=sp.piso}if(sp&&!sp.closed){const g=geom(sp);if(sp.walls.length){const lw=sp.walls[sp.walls.length-1];trace.dir=normA(lw.ang+(trace.auto==='left'?90:trace.auto==='right'?-90:0))}}renderAll();break}
     case 'selWall':sel={t:'wall',sid:sel.sid,wid:v};renderAll();break;
     case 'addSpace':{pushUndo();let x=0;const ex=P.spaces.filter(z=>z.piso===view.piso);if(ex.length){let mx=-1e9;ex.forEach(z=>{geom(z).segs.forEach(sg=>[sg.oa,sg.ob].forEach(p=>{mx=Math.max(mx,toW(z,p)[0])}))});x=Math.round((mx+1)*100)/100;if(!isFinite(x))x=0}
-      const npt=ex[0]?ex[0].npt:0;const sp=newSpace('',x,0,view.piso,npt);P.spaces.push(sp);sel={t:'space',sid:sp.id};trace.dir=0;saved();renderAll();if(view.mode==='planta'){view.cx=x+2;view.cy=1.5;draw2D()}setTimeout(()=>{const m=$('#meas');if(m)m.focus()},50);break}
+      const npt=ex[0]?ex[0].npt:0;const sp=newSpace('',x,0,view.piso,npt);sp.ref=view.wallRef||'int';P.spaces.push(sp);sel={t:'space',sid:sp.id};trace.dir=0;saved();renderAll();if(view.mode==='planta'){view.cx=x+2;view.cy=1.5;draw2D()}setTimeout(()=>{const m=$('#meas');if(m)m.focus()},50);break}
     case 'dir':trace.dir=normA(+v);renderInspector();buildDL();draw2D();$('#meas')&&$('#meas').focus();break;
     case 'turn':trace.dir=normA(trace.dir+(+v));renderInspector();buildDL();draw2D();break;
     case 'addWall':addWallFromMeas();break;
@@ -1651,7 +1677,7 @@ function act(a,v){
 /* ============ vistas ============ */
 function setMode(m){view.mode=m;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===m)));
   const two=m==='planta'||m==='alzados'||m==='cortes';cv.hidden=!two;$('#cv3').hidden=m!=='3d';$('#msg3').hidden=true;$('#cuadro').hidden=m!=='cuadro';$('#hud').hidden=!two;$('#tView').hidden=m!=='cortes';if(m==='cortes')renderPisos();
-  $('#tools').hidden=m==='cuadro';['tPiso','tDims'].forEach(id=>$('#'+id).hidden=m!=='planta');$('#rail').hidden=m!=='planta';$('#elpal').hidden=true;$('#roofpal').hidden=true;$('#oppal').hidden=true;$('#stairpal').hidden=true;$('#slabpal').hidden=true;hideQ();$('#tRoof').hidden=!(m==='planta'||m==='3d');
+  $('#tools').hidden=m==='cuadro';['tPiso','tDims'].forEach(id=>$('#'+id).hidden=m!=='planta');$('#rail').hidden=m!=='planta';$('#wallpal').hidden=true;$('#elpal').hidden=true;$('#roofpal').hidden=true;$('#oppal').hidden=true;$('#stairpal').hidden=true;$('#slabpal').hidden=true;hideQ();$('#tRoof').hidden=!(m==='planta'||m==='3d');
   if(two){requestAnimationFrame(fitView)}
   if(m==='3d')requestAnimationFrame(()=>{build3D(true)});
   if(m==='cuadro')renderCuadro();
