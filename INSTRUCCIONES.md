@@ -73,10 +73,10 @@ Con el iPad conectado:
   - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
   - En un espacio ya hecho se cambia en **Datos → Medidas tomadas por**.
   - Las distancias de puertas y ventanas se miden desde la esquina de esa misma cara.
-- **Largos redondeados:** al dibujar con el lápiz, el largo del muro sale de 10 en 10 cm (3.10, 3.20, 3.30…), no 3.12 o 5.18.
-  - Si llegas a la esquina de otro muro o al punto inicial, se pega exacto a esa esquina.
-  - Al tocar **Muro** puedes cambiar el redondeo a 5 cm o a 1 cm.
-  - La medida que escribes en el cuadro de medidas o en la cota se respeta tal cual, con centímetros (por ejemplo 3.12).
+- **Todo se redondea:** lo que dibujas o arrastras con el lápiz sale de 10 en 10 cm. Eso vale para los muros, las losas, las cubiertas, los cortes, las escaleras, el tamaño de los elementos, la posición y el ancho de puertas y ventanas, las alturas en los alzados y al correr un muro o una esquina.
+  - En el cuadro de cualquier herramienta puedes cambiar el redondeo a 5 cm o a 1 cm. Queda igual para todas las herramientas.
+  - Si llegas a una esquina existente, se pega exacto a esa esquina.
+  - Lo que **escribes** en el cuadro de medidas o en una cota se respeta tal cual (por ejemplo 3.12).
 - **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK.
   - Antes, elige **Fija inicio** o **Fija final**: esa esquina se queda quieta (cuadrito naranja) y el muro crece hacia la otra. Todo lo que está más allá de la esquina libre se corre con ella, como estirar en ArchiCAD.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
@@ -111,10 +111,10 @@ Con el iPad conectado:
   - Al dibujar un piso de arriba, los muros del piso de abajo se ven de fondo como referencia.
 - **Losa:** arrastra de esquina a esquina, o toca dentro de un espacio para crear la losa con su forma.
   - Arriba cambias el espesor y el nivel, o agregas un **vacío** (para escaleras o patios) tocando sus esquinas.
-- **Escalera:** elige el tipo (recta, en L, en U o caracol) en el cuadro flotante y arrastra el lápiz desde el arranque hacia donde sube.
-  - **Lo que arrastras da el número de escalones:** mientras arrastras ves la escalera en naranja y cuántos escalones lleva y cuánto sube. Así puedes dibujar una de 3 o 5 escalones, no siempre la del piso completo.
-  - Ya dibujada, el **punto naranja del final** la alarga o la acorta con el lápiz, escalón por escalón. El **círculo** la gira libremente y el botón de girar la gira 90°.
-  - En el cuadro escribes **Escalones**, **Contrahuella**, **Huella** y **Ancho**. Si cambias los escalones, la contrahuella se queda igual y cambia la altura. La app te dice cuánto sube y si cumple la regla de Blondel.
+- **Escalera:** en el cuadro de la herramienta eliges el tipo (recta, en L, en U o caracol) y la huella, contrahuella y ancho que prefieres. Luego arrastras el lápiz desde el arranque **hasta donde llega**.
+  - **La distancia que arrastras es el largo de la escalera.** Los escalones se reparten solos con la huella más cercana a la que escogiste. Por ejemplo, 1.50 m dan 5 escalones de 0.30. Mientras arrastras ves la escalera en naranja con el largo, los escalones y cuánto sube.
+  - Ya dibujada, el **punto naranja del final** la alarga o la acorta con el lápiz. El **círculo** la gira libremente y el botón de girar la gira 90°.
+  - En su cuadro escribes **Largo** (se reparte en los mismos escalones), **Escalones** (la contrahuella se queda igual y cambia lo que sube), **Contrahuella**, **Huella** y **Ancho**. Abajo te dice cuánto sube y si cumple la regla de Blondel.
   - Si solo tocas sin arrastrar, sale la escalera completa para la altura del piso.
 - **Corte:** dibuja la línea de corte con el lápiz; la flecha indica hacia dónde se mira.
   - **Ver corte** lo abre en la pestaña **Cortes**, donde también están las 4 fachadas automáticas. Lo cortado sale relleno y lo de fondo en proyección, con los niveles de cada piso.
@@ -144,7 +144,16 @@ Con el iPad conectado:
   - O pasa el lápiz por encima de varios muros, puertas, ventanas y elementos: se marcan en rojo y se borran todos al levantar el lápiz.
   - Al borrar un muro los demás se quedan en su sitio, como en ArchiCAD.
   - Si te equivocas, ↶ deshace. Con teclado, la tecla Suprimir borra lo seleccionado.
-- **Opciones de cada herramienta:** al tocar Puerta, Ventana, Cubierta, Losa, Escalera o Elemento, sus tipos salen dentro del mismo cuadro flotante, no en una ventana aparte. Cuando escoges uno, la lista se recoge sola y el cuadro queda pequeño, con el nombre de lo que escogiste. Para volver a ver la lista toca **▾** o toca otra vez la herramienta.
+- **Cuadro de cada herramienta:** todas las herramientas abren su cuadro flotante al tocarlas, igual que Muro. El cuadro queda medio transparente mientras no lo usas.
+  - **Puerta, Ventana, Cubierta, Losa y Elemento:** los tipos salen en el cuadro en tamaño pequeño y la lista se queda abierta. ▾ la recoge.
+  - **Vano:** ancho y alto de los vanos nuevos.
+  - **Losa:** espesor.
+  - **Escalera:** huella, contrahuella y ancho.
+  - **Corte:** profundidad de vista.
+  - **Daño:** tipo de daño (humedad, fisura…).
+  - **Foto:** tomar o elegir la foto.
+  - **Mover** y **Borrar:** qué hacer con el lápiz.
+  - Todas, menos Foto y Borrar, traen el redondeo.
 - **Panel de datos:** se muestra y se oculta con el botón **Panel** de arriba o con la pestaña **‹ ›** del borde derecho. Viene oculto para dejar todo el espacio al plano.
 
 ## Uso diario sin internet
