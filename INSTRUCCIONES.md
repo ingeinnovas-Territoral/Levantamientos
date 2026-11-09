@@ -118,6 +118,13 @@ Con el iPad conectado:
   - **Ver corte** lo abre en la pestaña **Cortes**, donde también están las 4 fachadas automáticas. Lo cortado sale relleno y lo de fondo en proyección, con los niveles de cada piso.
   - **Invertir vista** cambia el lado; **Profundidad** define hasta dónde se ve.
   - Los cortes y fachadas salen también en el PDF y en el DXF.
+- **Fotos con medidas** (cocinas, baños, cuartos, fachadas…):
+  - Con la herramienta **Foto** (la cámara de la barra) tocas en el plano el sitio donde estás y eliges **Tomar foto** o **Desde Fotos**. La foto queda marcada en el plano con una cámara (F1, F2…) y ligada a ese espacio. Arrastra la cámara para moverla y tócala para abrir la foto.
+  - También puedes tomarla desde la pestaña **Fotos** de arriba, que muestra todas las fotos del levantamiento, o con el botón de cámara del cuadro de medidas de un espacio.
+  - En la foto, con **Medida** arrastras el lápiz de un extremo al otro de lo que mediste y escribes la medida en la casilla (2.40, o 2,40). Con **Nota** tocas y escribes un texto (enchape, sin pañete, humedad…).
+  - Toca una medida para cambiarla o borrarla. Arrastra sus puntas para ajustarla o el número para correrla. Con dos dedos acercas o alejas la foto.
+  - **Guardar imagen** saca la foto con las medidas dibujadas, para guardarla en Fotos o mandarla por WhatsApp.
+  - Las fotos salen al final del PDF, una por hoja con sus medidas, y van dentro del archivo de **Guardar**.
 - **Mover:** arrastra cualquier cosa. En un espacio seleccionado, los puntos de las esquinas cambian su forma, y si arrastras un muro lo corres completo.
 - **Alzados:** arrastra puertas y ventanas para cambiar la altura, el antepecho y la posición. Arrastra la esquina de arriba de un muro para cambiar su altura.
 - **Escribir a mano:** en cualquier casilla de medida puedes escribir el número con el lápiz y el iPad lo convierte en texto (Garabatear / Scribble).
