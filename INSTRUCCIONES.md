@@ -111,9 +111,11 @@ Con el iPad conectado:
   - Al dibujar un piso de arriba, los muros del piso de abajo se ven de fondo como referencia.
 - **Losa:** arrastra de esquina a esquina, o toca dentro de un espacio para crear la losa con su forma.
   - Arriba cambias el espesor y el nivel, o agregas un **vacío** (para escaleras o patios) tocando sus esquinas.
-- **Escalera:** elige recta, en L, en U o caracol y arrastra desde el arranque hacia donde sube.
-  - La app calcula las contrahuellas según la altura del piso y te dice si cumple la regla de Blondel.
-  - Con el círculo la giras; arriba cambias el tipo, el giro, los pasos y el ancho.
+- **Escalera:** elige el tipo (recta, en L, en U o caracol) en el cuadro flotante y arrastra el lápiz desde el arranque hacia donde sube.
+  - **Lo que arrastras da el número de escalones:** mientras arrastras ves la escalera en naranja y cuántos escalones lleva y cuánto sube. Así puedes dibujar una de 3 o 5 escalones, no siempre la del piso completo.
+  - Ya dibujada, el **punto naranja del final** la alarga o la acorta con el lápiz, escalón por escalón. El **círculo** la gira libremente y el botón de girar la gira 90°.
+  - En el cuadro escribes **Escalones**, **Contrahuella**, **Huella** y **Ancho**. Si cambias los escalones, la contrahuella se queda igual y cambia la altura. La app te dice cuánto sube y si cumple la regla de Blondel.
+  - Si solo tocas sin arrastrar, sale la escalera completa para la altura del piso.
 - **Corte:** dibuja la línea de corte con el lápiz; la flecha indica hacia dónde se mira.
   - **Ver corte** lo abre en la pestaña **Cortes**, donde también están las 4 fachadas automáticas. Lo cortado sale relleno y lo de fondo en proyección, con los niveles de cada piso.
   - **Invertir vista** cambia el lado; **Profundidad** define hasta dónde se ve.
@@ -142,6 +144,7 @@ Con el iPad conectado:
   - O pasa el lápiz por encima de varios muros, puertas, ventanas y elementos: se marcan en rojo y se borran todos al levantar el lápiz.
   - Al borrar un muro los demás se quedan en su sitio, como en ArchiCAD.
   - Si te equivocas, ↶ deshace. Con teclado, la tecla Suprimir borra lo seleccionado.
+- **Opciones de cada herramienta:** al tocar Puerta, Ventana, Cubierta, Losa, Escalera o Elemento, sus tipos salen dentro del mismo cuadro flotante, no en una ventana aparte. Cuando escoges uno, la lista se recoge sola y el cuadro queda pequeño, con el nombre de lo que escogiste. Para volver a ver la lista toca **▾** o toca otra vez la herramienta.
 - **Panel de datos:** se muestra y se oculta con el botón **Panel** de arriba o con la pestaña **‹ ›** del borde derecho. Viene oculto para dejar todo el espacio al plano.
 
 ## Uso diario sin internet

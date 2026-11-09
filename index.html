@@ -180,6 +180,10 @@ main.nopanel aside{display:none}
 .props .pf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accentwash)}
 .props .info{grid-column:1/-1;font:11px var(--f-num);color:var(--ink2);line-height:1.35}
 .props .info:empty{display:none}
+.props.wide{width:310px}
+.props .pal{padding:0 7px 7px}
+.props .elpal{position:static!important;width:auto!important;max-height:46vh!important;box-shadow:none!important;border:0!important;padding:0!important;background:none!important;overflow:auto;z-index:auto}
+.props .elpal p{font-size:11px;margin:2px 0 5px}
 .props .info .btn.sm{padding:2px 7px;min-height:0;font-size:11px}
 .props .pa{display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 7px}
 .props .ib{width:32px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
@@ -1038,7 +1042,7 @@ const STYPES=[['recta','Recta'],['L','En L'],['U','En U'],['caracol','Caracol']]
 const curStair=()=>(P.stairs||[]).find(x=>x.id===sel.eid2);
 function stairCodes(){const m={};(P.stairs||[]).forEach((s,i)=>m[s.id]='E'+(i+1));return m}
 function newStair(o){const h=levelOf(view.piso).h;return Object.assign({id:uid(),piso:view.piso,tipo:view.stairType||'recta',x:0,y:0,rot:90,ancho:1,h,n:Math.max(3,Math.round(h/.175)),huella:.28,giro:'der',diam:1.6,ojo:.1,mat:'Concreto',nota:''},o)}
-function stairGeo(st){const n=Math.max(2,st.n|0),ch=st.h/n,hu=st.huella,a=st.ancho,T=[],LD=[],path=[];const g=st.giro==='izq'?-1:1;
+function stairGeo(st){const n=Math.max(1,st.n|0),ch=st.h/n,hu=st.huella,a=st.ancho,T=[],LD=[],path=[];const g=st.giro==='izq'?-1:1;
   const ra=rad(st.rot||90),Y=[Math.cos(ra),Math.sin(ra)],X=[Math.sin(ra),-Math.cos(ra)],W=(x,y)=>[st.x+X[0]*x+Y[0]*y,st.y+X[1]*x+Y[1]*y];
   const R=(x0,y0,x1,y1)=>[W(x0,y0),W(x1,y0),W(x1,y1),W(x0,y1)];
   if(st.tipo==='caracol'){const Rr=st.diam/2,th=rad(Math.min(30,300/n)),r0=.08;for(let i=0;i<n;i++){const t0=i*th*g,t1=(i+1)*th*g,pts=[W(Math.cos(t0)*r0,Math.sin(t0)*r0)];for(let k=0;k<=6;k++){const t=t0+(t1-t0)*k/6;pts.push(W(Math.cos(t)*Rr,Math.sin(t)*Rr))}pts.push(W(Math.cos(t1)*r0,Math.sin(t1)*r0));T.push({poly:pts,z1:(i+1)*ch})}
@@ -1056,7 +1060,12 @@ function stairsDL(dl,piso,opt){const codes=stairCodes();(P.stairs||[]).filter(s=
   dl.push({k:'circle',c:G.path[0],r:.06,st:s2,ly,fill:'col'});txt(dl,G.path[0],'SUBE',1.6,{st:'ink2',ly,dy:-3});
   txt(dl,G.path[0],codes[st.id]+' · '+G.n+' c.h. '+f2(G.ch)+' × '+f2(st.huella),1.7,{st:'dim',ly,dy:-6,font:'num'})})}
 function hitStair(p){const ss=(P.stairs||[]).filter(s=>(s.piso||1)===view.piso);for(let i=ss.length-1;i>=0;i--){const G=stairGeo(ss[i]);if(G.T.some(t=>inPoly(p,t.poly))||G.LD.some(l=>inPoly(p,l.poly)))return{t:'stair',eid2:ss[i].id}}return null}
-function blondel(st){const ch=st.h/Math.max(2,st.n|0),v=2*ch+st.huella;return{ch,v,ok:v>=.6&&v<=.66}}
+function stairFromDrag(d){const A=d.A,B=d.moved&&d.B?d.B:add(A,[0,1]),rot=normA(Math.round(deg(Math.atan2(B[1]-A[1],B[0]-A[0]))/5)*5);
+  if((view.stairType||'recta')==='caracol')return newStair({x:r2(A[0]),y:r2(A[1]),rot,diam:d.moved&&d.B?Math.max(1.2,r2(2*len(sub(B,A)))):1.6,tipo:'caracol',giro:view.stairGiro||'der'});
+  const st=newStair({x:r2(A[0]),y:r2(A[1]),rot,tipo:view.stairType||'recta',giro:view.stairGiro||'der'});
+  if(d.moved&&d.B){const ch=st.h/st.n,n=Math.max(1,Math.round(len(sub(B,A))/st.huella));st.n=n;st.h=Math.round(n*ch*1000)/1000}return st}
+const stairTxt=st=>st.tipo==='caracol'?'Caracol Ø '+f2(st.diam)+' · '+st.n+' escalones':st.n+(st.n===1?' escalón':' escalones')+' · sube '+f2(st.h)+' m';
+function blondel(st){const ch=st.h/Math.max(1,st.n|0),v=2*ch+st.huella;return{ch,v,ok:v>=.6&&v<=.66}}
 function inspStair(){const st=curStair(),code=stairCodes()[st.id],b=blondel(st),G=stairGeo(st);return`<div><span class="eyebrow">Escalera ${code} · ${esc(levelOf(st.piso).name)}</span><h2>${(STYPES.find(x=>x[0]===st.tipo)||['',''])[1]} · ${G.n} contrahuellas</h2></div>
   <div class="stats"><div><small>Contrahuella</small><b>${f2(b.ch)}</b></div><div><small>Huella</small><b>${f2(st.huella)}</b></div><div><small>2c + h</small><b>${f2(b.v)}</b></div></div>
   <p class="${b.ok?'okc':'warn'}">${b.ok?'Cumple la regla de Blondel (2c + h entre 0.60 y 0.66 m).':'No cumple la regla de Blondel: 2c + h debería estar entre 0.60 y 0.66 m.'}</p>
@@ -1155,10 +1164,11 @@ $('#rail').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');
 function setTool(t){
   if(view.pick)view.pick=null;
   if(view.tool==='muro'&&t!=='muro')endChain();
-  if(t==='el'&&view.tool==='el'){$('#elpal').hidden=!$('#elpal').hidden;return}
-  if((t==='puerta'||t==='ventana')&&view.tool===t){$('#oppal').hidden=!$('#oppal').hidden;opPalMode='tool';if(!$('#oppal').hidden)renderOpPal(t);return}
+  if(t==='el'&&view.tool==='el'){propsHide=null;renderPal();$('#elpal').hidden=false;propsSig='';renderProps();return}
+  if((t==='puerta'||t==='ventana')&&view.tool===t){propsHide=null;opPalMode='tool';renderOpPal(t);$('#oppal').hidden=false;propsSig='';renderProps();return}
   if(t==='muro'&&view.tool==='muro'){propsHide=null;propsSig='';renderProps();return}
-  if(t==='cub'&&view.tool==='cub'){$('#roofpal').hidden=!$('#roofpal').hidden;if(!$('#roofpal').hidden)renderRoofPal();return}
+  if(t==='cub'&&view.tool==='cub'){propsHide=null;renderRoofPal();$('#roofpal').hidden=false;propsSig='';renderProps();return}
+  if((t==='esc'||t==='losa')&&view.tool===t){propsHide=null;propsSig='';renderProps();return}
   if(t!=='cub')rdraft=null;$('#roofpal').hidden=t!=='cub';if(t==='cub')renderRoofPal();
   $('#wallpal').hidden=true;
   $('#stairpal').hidden=t!=='esc';if(t==='esc')renderStairPal();$('#slabpal').hidden=t!=='losa';if(t==='losa')renderSlabPal();if(t!=='losa')sdraft=null;
@@ -1235,7 +1245,7 @@ function handles(){const H=[];
     idx.forEach(i=>{if(pts[i])H.push({k:'vtx',i,p:toW(s,pts[i])})})}
   if(sel.t==='roof'){const r=curRoof();if(!r)return H;return roofHandles(r)}
   if(sel.t==='slab'){const sl=curSlab();if(!sl)return H;return roofHandles(sl)}
-  if(sel.t==='stair'){const st=curStair();if(!st)return H;const G=stairGeo(st),e=G.path[G.path.length-1];H.push({k:'strot',p:add(e,mul(unit(sub(e,G.path[G.path.length-2])),Math.max(.5,30/view.scale)))});return H}
+  if(sel.t==='stair'){const st=curStair();if(!st)return H;const G=stairGeo(st),e=G.path[G.path.length-1],u=unit(sub(e,G.path[G.path.length-2]));H.push({k:'strot',p:add(e,mul(u,Math.max(.75,58/view.scale)))});if(st.tipo==='recta'){const lt=G.T[G.T.length-1].poly;H.push({k:'stlen',p:mul(add(lt[2],lt[3]),.5)})}return H}
   if(sel.t==='section'){const c=curSection();if(!c)return H;H.push({k:'sca',p:c.a},{k:'scb',p:c.b});return H}
   if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(!o)return H;const g=geom(s),sg=g.segs[s.walls.indexOf(w)],m=mul(sg.n,sg.t/2);
     H.push({k:'opA',p:toW(s,add(add(sg.a,mul(sg.d,o.off)),m))},{k:'opB',p:toW(s,add(add(sg.a,mul(sg.d,o.off+o.w)),m))})}
@@ -1251,9 +1261,11 @@ function startDrag(kind,p0,extra){return Object.assign({kind,p0,snap:snapshot(),
 function dragApply(d,q){
   {const dl0=sub(q,d.p0);
   if(d.kind==='stairmv'){const st=d.obj;let nx=r5(d.o0[0]+dl0[0]),ny=r5(d.o0[1]+dl0[1]);const sn=snapPt([nx,ny]);if(sn.v){nx=sn.p[0];ny=sn.p[1]}st.x=r2(nx);st.y=r2(ny);live={p:q,t:'Mover escalera'};return}
+  if(d.kind==='stlen'){const st=d.obj,ra=rad(st.rot||90),Y=[Math.cos(ra),Math.sin(ra)],run=(q[0]-st.x)*Y[0]+(q[1]-st.y)*Y[1],n=Math.max(1,Math.round(run/st.huella));st.n=n;st.h=Math.round(n*d.ch*1000)/1000;live={p:q,t:stairTxt(st)};return}
   if(d.kind==='strot'){const st=d.obj,a=deg(Math.atan2(q[1]-st.y,q[0]-st.x)),rr=Math.round(a/90)*90;st.rot=normA(Math.abs(a-rr)<8?rr:Math.round(a/5)*5);live={p:q,t:f2(st.rot).replace('.00','')+'°'};return}
   if(d.kind==='sca'||d.kind==='scb'){const c=d.obj,sn=snapPt(q).p,o=d.kind==='sca'?c.b:c.a;let v=sn;const dd=sub(v,o);if(Math.abs(dd[0])<Math.abs(dd[1])*.08)v=[o[0],v[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.08)v=[v[0],o[1]];if(d.kind==='sca')c.a=v;else c.b=v;live={p:q,t:f2(len(sub(c.b,c.a)))+' m'};return}
   if(d.kind==='secmv'){const c=d.obj,sh=[r5(dl0[0]),r5(dl0[1])];c.a=add(d.a0,sh);c.b=add(d.b0,sh);live={p:q,t:'Mover corte'};return}
+  if(d.kind==='newstair'){let B=snapPt(q).p;const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.15)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.15)B=[B[0],d.A[1]];d.B=B;live={p:q,t:stairTxt(stairFromDrag(d))};return}
   if(d.kind==='newslab'||d.kind==='newsec'||d.kind==='newstair'){let B=snapPt(q).p;if(d.kind!=='newslab'){const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.15)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.15)B=[B[0],d.A[1]]}d.B=B;live={p:q,t:d.kind==='newslab'?f2(Math.abs(B[0]-d.A[0]))+' × '+f2(Math.abs(B[1]-d.A[1])):f2(len(sub(B,d.A)))+' m'};return}
   if(d.kind==='spt'){d.B=snapPt(q).p;return}}
   if(['roof','rv','re','rrot','rsx','rsy','psx','psy'].includes(d.kind)){roofDragApply(d,q);return}
@@ -1303,6 +1315,7 @@ function toolDown(p,pt){
       if(h.k==='opA'||h.k==='opB')return startDrag(h.k,p,{obj:curOp(),s:curSpace(),w:curWall()})
       if((sel.t==='roof'||sel.t==='slab')&&['rv','re','rrot','rsx','rsy','psx','psy'].includes(h.k))return roofDragStart(h,p,sel.t==='slab'?curSlab():null)
       if(h.k==='strot'){const st=curStair();return startDrag('strot',p,{obj:st})}
+      if(h.k==='stlen'){const st=curStair();return startDrag('stlen',p,{obj:st,ch:st.h/Math.max(1,st.n)})}
       if(h.k==='sca'||h.k==='scb'){const c=curSection();return startDrag(h.k,p,{obj:c})}}
     if(sel.t==='roof'){const r=curRoof();if(r&&inPoly(p,roofOutline(r))){const d=roofDragStart({k:'roof'},p);d.reselect=true;return d}}
     if(sel.t==='slab'){const sl=curSlab();if(sl&&inPoly(p,sl.pts)){const d=roofDragStart({k:'roof'},p,sl);d.reselect=true;return d}}
@@ -1408,7 +1421,7 @@ function endPtr(e){if(lpEnd(e))return;const was=ptrs.get(e.pointerId);ptrs.delet
     if(d.kind==='newslab'){let sl=null;if(d.moved&&d.B){const A=d.A,B=d.B;if(Math.abs(B[0]-A[0])>=.3&&Math.abs(B[1]-A[1])>=.3)sl=newSlab([[A[0],A[1]],[B[0],A[1]],[B[0],B[1]],[A[0],B[1]]])}else{const s=P.spaces.find(z=>z.piso===view.piso&&geom(z).closed&&inPoly(toL(z,d.p0),geom(z).P));if(s)sl=slabOverSpace(s);else{const hz=hitZone(d.p0);if(hz){const z=P.zones.find(x=>x.id===hz.zid),g=zoneGeom(z);if(g.pts.length>=3)sl=newSlab(g.pts,{z:z.npt||0})}}}
       live=null;if(sl){roofsOf(P);ensureLevels(P);P.slabs.push(sl);sel={t:'slab',lid:sl.id};undoS.push(d.snap);redoS=[];saved();toast('Losa '+slabCodes()[sl.id]+' creada')}else if(!d.moved)toast('Arrastra de esquina a esquina, o toca dentro de un espacio');renderAll();return}
     if(d.kind==='spt'){const pt=d.B||d.A;if(!sdraft)sdraft={mode:sel.t==='slab'&&view.holeFor?'hole':'slab',pts:[]};const pts=sdraft.pts;if(pts.length>=3&&len(sub(pt,pts[0]))<16/view.scale){finishSdraft()}else pts.push(pt);live=null;renderAll();return}
-    if(d.kind==='newstair'){ensureLevels(P);const A=d.A,B=d.moved&&d.B?d.B:add(A,[0,1]);const rot=normA(Math.round(deg(Math.atan2(B[1]-A[1],B[0]-A[0]))/5)*5);const st=view.stairType==='caracol'?newStair({x:r2(A[0]),y:r2(A[1]),rot,diam:d.moved?Math.max(1.2,r2(2*len(sub(B,A)))):1.6,tipo:'caracol',giro:view.stairGiro||'der'}):newStair({x:r2(A[0]),y:r2(A[1]),rot,tipo:view.stairType||'recta',giro:view.stairGiro||'der'});P.stairs.push(st);sel={t:'stair',eid2:st.id};undoS.push(d.snap);redoS=[];saved();live=null;const b=blondel(st);toast(stairCodes()[st.id]+': '+st.n+' contrahuellas de '+f2(b.ch)+' m · huella '+f2(st.huella)+(b.ok?' · cumple Blondel':' · revisa Blondel'));renderAll();return}
+    if(d.kind==='newstair'){ensureLevels(P);const st=stairFromDrag(d);P.stairs.push(st);sel={t:'stair',eid2:st.id};undoS.push(d.snap);redoS=[];saved();live=null;const b=blondel(st);toast(stairCodes()[st.id]+': '+st.n+' contrahuellas de '+f2(b.ch)+' m · huella '+f2(st.huella)+(b.ok?' · cumple Blondel':' · revisa Blondel'));renderAll();return}
     if(d.kind==='newsec'){live=null;if(d.moved&&d.B&&len(sub(d.B,d.A))>=.5){ensureLevels(P);const c={id:uid(),name:nextSecName(),a:d.A,b:d.B,dir:1,depth:15};P.sections.push(c);view.secView='sec:'+c.id;sel={t:'section',cid:c.id};undoS.push(d.snap);redoS=[];saved();toast('Corte '+c.name+'-'+c.name+' creado. Toca "Ver corte" arriba.')}else toast('Dibuja la línea de corte arrastrando el lápiz');renderAll();return}
     if(['newroof','newrad','rpt'].includes(d.kind)){const r=roofToolUp(d);live=null;if(r){undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved();toast('Cubierta '+roofCodes()[r.id]+' creada. Toca el punto del medio de un lado para editar esa agua.')}renderAll();return}
     const isSlab=(P.slabs||[]).includes(d.obj);
@@ -1444,6 +1457,7 @@ function drawOverlay(tf){
   const label=(p,t)=>{const [x,y]=tf(p[0],p[1]);c.font='600 14px '+COL.num;const w=c.measureText(t).width+14;let lx=x+18,ly=y-34;const r=cv.getBoundingClientRect();if(lx+w>r.width-8)lx=x-18-w;if(ly<6)ly=y+18;c.fillStyle=COL.ink;c.beginPath();if(c.roundRect)c.roundRect(lx,ly,w,24,6);else c.rect(lx,ly,w,24);c.fill();c.fillStyle=COL.paper;c.textBaseline='middle';c.textAlign='left';c.fillText(t,lx+7,ly+12)};
   if(view.mode==='planta'){
     drawPhotoMarks(c,tf);
+    if(drag&&drag.kind==='newstair'&&drag.B){const G=stairGeo(stairFromDrag(drag));c.setLineDash([5,4]);c.strokeStyle=COL.accent;c.lineWidth=1.5;c.fillStyle=COL.accentwash;G.T.concat(G.LD).forEach(t=>{c.beginPath();t.poly.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.closePath();c.fill();c.stroke()});c.setLineDash([])}
     if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(o){const g=geom(s),sg=g.segs[s.walls.indexOf(w)],A=add(sg.a,mul(sg.d,o.off)),B=add(sg.a,mul(sg.d,o.off+o.w)),N=mul(sg.n,sg.t);
       const q=[A,B,add(B,N),add(A,N)].map(p=>tf(...toW(s,p)));c.beginPath();q.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.fillStyle=COL.accentwash;c.fill();c.strokeStyle=COL.accent;c.lineWidth=2;c.stroke()}}
     if(sel.t==='el'&&view.tool==='sel'){const e=curEl();if(e&&!(CAT[e.type]||{}).marker){const a=tf(e.x,e.y),b=tf(...elLocal(e,0,e.d/2+Math.max(.25,26/view.scale)));c.strokeStyle=COL.accent;c.lineWidth=1.5;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}}
@@ -1500,7 +1514,7 @@ $('#chip').addEventListener('keydown',e=>{if(e.target.id==='zNameIn'&&e.key==='E
 $('#chip').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(!b)return;chipDo(b.dataset.c,b)});
 function chipDo(c,b){b=b||{dataset:{},getBoundingClientRect:()=>$('#chip').getBoundingClientRect()};
   if(c==='more'){setPanel(true);return}
-  if(c==='otype'){const o=curOp();if(o){opPalMode='change';renderOpPal(o.type);$('#oppal').hidden=false}return}
+  if(c==='otype'){const o=curOp();if(o){opPalMode='change';renderOpPal(o.type);$('#oppal').hidden=false;propsHide=null;propsSig='';renderProps()}return}
   if(c==='mkzone'){const s=curSpace();startPick(s?s.walls.map(w=>w.id):[]);return}
   if(c==='sclose'){act('close');return}
   if(c==='zwalls'){const z=curZone();if(z)startPick(z.walls,z.id);return}
@@ -1542,7 +1556,7 @@ function chipDo(c,b){b=b||{dataset:{},getBoundingClientRect:()=>$('#chip').getBo
     if(c==='edel'){const n=r.pts.length,a=r.pts[i],bq=r.pts[(i+1)%n],m=[r2((a[0]+bq[0])/2),r2((a[1]+bq[1])/2)];r.pts[i]=m;r.pts.splice((i+1)%n,1);r.edges.splice(i,1);if((i+1)%n===0){}sel={t:'roof',rid:r.id}}
     if(c==='del'){P.roofs=P.roofs.filter(x=>x!==r);sel={t:'proj'};toast('Cubierta eliminada. ↶ para deshacer')}}
   else if(sel.t==='slab'&&c==='del'){P.slabs=P.slabs.filter(x=>x.id!==sel.lid);sel={t:'proj'};toast('Losa eliminada. ↶ para deshacer')}
-  else if(sel.t==='stair'){const st=curStair();if(c==='stt')st.tipo=b.dataset.v;if(c==='stg')st.giro=st.giro==='izq'?'der':'izq';if(c==='del'){P.stairs=P.stairs.filter(x=>x!==st);sel={t:'proj'};toast('Escalera eliminada. ↶ para deshacer')}}
+  else if(sel.t==='stair'){const st=curStair();if(c==='stt')st.tipo=b.dataset.v;if(c==='stg')st.giro=st.giro==='izq'?'der':'izq';if(c==='rot90')st.rot=normA((st.rot||0)+90);if(c==='del'){P.stairs=P.stairs.filter(x=>x!==st);sel={t:'proj'};toast('Escalera eliminada. ↶ para deshacer')}}
   else if(sel.t==='section'){const cc=curSection();if(c==='secflip')cc.dir=-(cc.dir||1);if(c==='del'){P.sections=P.sections.filter(x=>x!==cc);sel={t:'proj'};toast('Corte eliminado. ↶ para deshacer')}}
   else if(sel.t==='zone'&&c==='del'){P.zones=P.zones.filter(x=>x.id!==sel.zid);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
   else if(sel.t==='space'&&c==='del'){const s=curSpace();P.spaces=P.spaces.filter(x=>x!==s);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
@@ -1622,8 +1636,8 @@ function deleteSel(){if(PROPT.includes(sel.t))chipDo('del')}
 /* ---- cuadro flotante de propiedades (se escribe con el lápiz) ---- */
 let propsHide=null,propsSig='';
 const selKey=()=>JSON.stringify(sel);
-const pfv=f=>f.v==null?'':(typeof f.v==='number'?(f.int?String(Math.round(f.v)):f2(f.v)):String(f.v));
-const FICO={len:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',w:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',ancho:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',h:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hIni:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hFin:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',t:'<path d="M4 2v12M12 2v12M4 8h8"/>',esp:'<path d="M2 5h12M2 11h12M8 5v6"/>',d:'<path d="M3 13l10-10M3 13h4M3 13V9M13 3H9M13 3v4"/>',sill:'<path d="M3 14h10M8 14V8M5 4h6v4H5z"/>',off:'<path d="M2 3v10M2 8h11M13 8l-3-3M13 8l-3 3"/>',rot:'<path d="M13 8a5 5 0 1 1-1.5-3.6M12 1.5v3h-3"/>',z:'<path d="M2 14h12M8 13V5M8 5L5 8M8 5l3 3"/>',npt:'<path d="M2 12h12M8 4l-3 5h6z"/>',n:'<path d="M2 14h3v-3h3V8h3V5h3"/>',huella:'<path d="M2 12h4V8h4V4h4"/>',p:'<path d="M2 13L14 5M2 13h12"/>',pend:'<path d="M2 13L14 5M2 13h12"/>',hA:'<path d="M2 9l6-5 6 5M8 9v5"/>',rise:'<path d="M2 13q6-12 12 0M8 6v7"/>',depth:'<path d="M3 8h10M10 5l3 3-3 3M3 4v8"/>'};
+const pfv=f=>f.v==null?'':(typeof f.v==='number'?(f.int?String(Math.round(f.v)):f.dec?f.v.toFixed(f.dec):f2(f.v)):String(f.v));
+const FICO={ch:'<path d="M2 13h5V8h5V3"/><path d="M14 8v5" stroke-dasharray="1.5 1.5"/>',diam:'<circle cx="8" cy="8" r="6"/><path d="M3 12L13 4"/>',len:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',w:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',ancho:'<path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>',h:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hIni:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',hFin:'<path d="M8 2v12M8 2L5 5M8 2l3 3M8 14l-3-3M8 14l3-3"/>',t:'<path d="M4 2v12M12 2v12M4 8h8"/>',esp:'<path d="M2 5h12M2 11h12M8 5v6"/>',d:'<path d="M3 13l10-10M3 13h4M3 13V9M13 3H9M13 3v4"/>',sill:'<path d="M3 14h10M8 14V8M5 4h6v4H5z"/>',off:'<path d="M2 3v10M2 8h11M13 8l-3-3M13 8l-3 3"/>',rot:'<path d="M13 8a5 5 0 1 1-1.5-3.6M12 1.5v3h-3"/>',z:'<path d="M2 14h12M8 13V5M8 5L5 8M8 5l3 3"/>',npt:'<path d="M2 12h12M8 4l-3 5h6z"/>',n:'<path d="M2 14h3v-3h3V8h3V5h3"/>',huella:'<path d="M2 12h4V8h4V4h4"/>',p:'<path d="M2 13L14 5M2 13h12"/>',pend:'<path d="M2 13L14 5M2 13h12"/>',hA:'<path d="M2 9l6-5 6 5M8 9v5"/>',rise:'<path d="M2 13q6-12 12 0M8 6v7"/>',depth:'<path d="M3 8h10M10 5l3 3-3 3M3 4v8"/>'};
 const pfHTML=f=>`<label class="pf${f.full?' full':''}" title="${esc(f.l)}"><span class="pl"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FICO[f.k]||FICO.len}</svg>${f.l}</span><input data-o="${f.o}" data-k="${f.k}" data-t="${f.int?'int':'num'}" ${f.nul?'data-null="1"':''} value="${esc(pfv(f))}" placeholder="${esc(f.ph||'')}" inputmode="decimal" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`;
 function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Object.assign({l,o,k,v},x||{}));
   if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w),sg=geom(s).segs[i];t='Muro M'+(i+1);
@@ -1645,8 +1659,10 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
   else if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);t=z.name;f('Altura libre','zone','h',z.h);f('NPT','zone','npt',z.npt);info=`Área ${f2(g.area)} m²`;A.push(['foto','Foto'],['zwalls','Muros'],['del','Eliminar','dng'])}
   else if(sel.t==='slab'&&curSlab()){const sl=curSlab();t='Losa '+slabCodes()[sl.id];f('Espesor','sl','esp',sl.esp);f('Nivel superior','sl','z',sl.z);info=`Área ${f2(slabArea(sl))} m² · volumen ${f2(slabArea(sl)*sl.esp)} m³`;A.push(['slhole','+ Vacío'],['del','Eliminar','dng'])}
   else if(sel.t==='stair'&&curStair()){const st=curStair(),b=blondel(st);t='Escalera '+stairCodes()[st.id];
-    f('Ancho','st','ancho',st.ancho);f('Altura','st','h',st.h);f('Contrah.','st','n',st.n,{int:1});f('Huella','st','huella',st.huella);
-    info=`Contrahuella ${f2(b.ch)} · 2c + h = ${f2(b.v)} ${b.ok?'✓ cumple Blondel':'· no cumple Blondel'}`;A.push(['del','Eliminar','dng'])}
+    f('Escalones','stn','n',st.n,{int:1});f('Contrahuella','stch','ch',st.h/Math.max(1,st.n),{dec:3});f('Huella','st','huella',st.huella);f(st.tipo==='caracol'?'Diámetro':'Ancho','st',st.tipo==='caracol'?'diam':'ancho',st.tipo==='caracol'?st.diam:st.ancho);
+    info=`Sube ${f2(st.h)} m · 2c + h = ${f2(b.v)} ${b.ok?'✓ cumple Blondel':'· no cumple Blondel'}`;
+    var extra=`<div class="chips">${STYPES.map(([k,n])=>`<button class="${st.tipo===k?'on':''}" data-pc="stt" data-v="${k}">${n}</button>`).join('')}</div>`;
+    A.push(['rot90','Girar 90°']);if(st.tipo!=='recta')A.push(['stg',st.giro==='izq'?'Gira a la izq.':'Gira a la der.']);A.push(['del','Eliminar','dng'])}
   else if(sel.t==='roof'&&curRoof()){const r=curRoof(),code=roofCodes()[r.id];t='Cubierta '+code;
     if(r.forma==='poligono'){const i=sel.edge,e=i!=null&&r.edges[i];
       if(e){t+=' · lado L'+(i+1);f('Altura alero','rf','hA',r.hA);if(!e.g)f('Pendiente %','redge:'+i,'p',e.p);else info='Este lado es un hastial.';A.push(['eall','Toda la cubierta'])}
@@ -1657,44 +1673,68 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
     A.push(['del','Eliminar','dng'])}
   else if(sel.t==='section'&&curSection()){const c=curSection();t='Corte '+c.name+'-'+c.name;f('Profundidad','sec','depth',c.depth||15,{full:1});A.push(['secview','Ver corte'],['del','Eliminar','dng'])}
   else return null;
-  return{t,F,A,info}}
+  return{t,F,A,info,extra:typeof extra==='string'?extra:''}}
 function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1;
   const x=`<div class="seg">${REFS.map(([k,n])=>`<button data-pc="wref" data-v="${k}" aria-pressed="${r===k}" title="Medidas por ${n.toLowerCase()}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
    <div class="cap">Espesor (m)</div><div class="chips">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="${Math.abs(t-v)<1e-6?'on':''}" data-pc="wt" data-v="${v}">${f2(v).replace(/^0/,'')}</button>`).join('')}</div>
    <div class="cap">Redondear el largo a</div><div class="chips">${[[.01,'1 cm'],[.05,'5 cm'],[.1,'10 cm']].map(([v,n])=>`<button class="${Math.abs(st-v)<1e-6?'on':''}" data-pc="ws" data-v="${v}">${n}</button>`).join('')}</div>`;
   return{t:'Muro nuevo',F:[],A:[],info:'',extra:x,key:'muro'+r+t+st}}
+const PALT={puerta:'oppal',ventana:'oppal',cub:'roofpal',esc:'stairpal',losa:'slabpal',el:'elpal'},PALS=['oppal','roofpal','stairpal','slabpal','elpal','wallpal'];
+const TOOLOBJ={puerta:'op',ventana:'op',cub:'roof',esc:'stair',losa:'slab',el:'el'};
+function palRender(id){if(id==='oppal')renderOpPal(opPalMode==='change'&&curOp()?curOp().type:view.tool);else if(id==='roofpal')renderRoofPal();else if(id==='stairpal')renderStairPal();else if(id==='slabpal')renderSlabPal();else if(id==='elpal')renderPal()}
+function toolModel(t){const id=PALT[t];if(!id)return null;let ch='';
+  if(t==='puerta'||t==='ventana'){const sub=t==='puerta'?view.doorSub:view.winSub,f=(OPSUB[t]||[]).find(x=>x[0]===sub);ch=f?f[1]:''}
+  if(t==='cub'){const f=RFORMS.find(x=>x[0]===(view.roofForm||'rect'));ch=f?f[1]:''}
+  if(t==='esc')ch=(STYPES.find(x=>x[0]===(view.stairType||'recta'))||['',''])[1];
+  if(t==='losa')ch=(view.slabForm||'rect')==='libre'?'Forma libre':'Rectangular';
+  if(t==='el')ch=(CAT[view.elType]||{}).n||'';
+  const hint={puerta:'Toca el muro donde va.',ventana:'Toca el muro donde va.',cub:'Dibuja la cubierta con el lápiz.',esc:'Arrastra desde el arranque hacia donde sube: lo que arrastras da el número de escalones.',losa:'Arrastra de esquina a esquina, o toca dentro de un espacio.',el:'Toca en el plano donde va.'}[t];
+  return{t:{puerta:'Puerta',ventana:'Ventana',cub:'Cubierta',esc:'Escalera',losa:'Losa',el:'Elemento'}[t]+(ch?' · '+ch:''),F:[],A:[],info:hint,pal:id,key:'tool:'+t+':'+ch,wide:t==='el'||t==='puerta'||t==='ventana'}}
 const AICO={foto:'foto',del:'borrar',dup:'dup',rot90:'rot','tool:puerta':'puerta','tool:ventana':'ventana'};
 function renderProps(){const box=$('#props');if(!box)return;
   const ok=(view.mode==='planta'||view.mode==='alzados')&&!view.pick;
-  const m=ok&&view.mode==='planta'&&view.tool==='muro'?(propsHide==='muro'?null:wallToolModel()):ok&&propsHide!==selKey()?propsModel():null;
-  if(!m){box.hidden=true;propsSig='';return}
+  let m=null;const tl=view.tool;
+  if(ok&&view.mode==='planta'&&tl==='muro')m=propsHide==='muro'?null:wallToolModel();
+  else if(ok&&view.mode==='planta'&&PALT[tl]&&sel.t!==TOOLOBJ[tl])m=propsHide==='tool:'+tl?null:toolModel(tl);
+  else if(ok&&propsHide!==selKey())m=propsModel();
+  const stg=$('#stage'),park=()=>box.querySelectorAll('.elpal').forEach(n=>stg.appendChild(n));
+  if(m&&!m.pal&&opPalMode==='change'&&sel.t==='op'&&!$('#oppal').hidden)m.pal='oppal';
+  if(m&&m.pal)m.key=(m.key||selKey())+'|'+m.pal;
+  const hidePals=()=>PALS.forEach(id=>{const n=$('#'+id);if(n&&n.parentElement===stg)n.hidden=true});
+  if(!m){park();hidePals();box.hidden=true;propsSig='';return}
   box.classList.toggle('ghost',!!drag);
   const sig=(m.key||selKey())+'|'+m.t+'|'+m.F.map(f=>f.o+'.'+f.k).join(',')+'|'+m.A.map(a=>a[0]+a[1]).join(',');
-  if(sig===propsSig&&!box.hidden){const ins=box.querySelectorAll('input');m.F.forEach((f,i)=>{const n=ins[i];if(n&&n!==document.activeElement){n.value=pfv(f);n.placeholder=f.ph||''}});box.querySelector('.info').innerHTML=m.info;return}
-  box.innerHTML=`<div class="ph"><span class="grip" aria-hidden="true">⋮⋮</span><b>${esc(m.t)}</b><button data-pc="more" title="Ver todos los datos en el panel" aria-label="Todos los datos">⋯</button><button data-pc="close" title="Cerrar este cuadro" aria-label="Cerrar">×</button></div>
-   <div class="pb">${m.F.map(pfHTML).join('')}${m.extra||''}<div class="info">${m.info}</div></div>${m.A.length?`<div class="pa">${m.A.map(a=>AICO[a[0]]?`<button class="ib ${a[2]||''}" data-pc="${a[0]}" title="${esc(a[1])}" aria-label="${esc(a[1])}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICO[AICO[a[0]]]}</svg></button>`:`<button class="tb ${a[2]||''}" data-pc="${a[0]}">${a[1]}</button>`).join('')}</div>`:''}`;
-  box.hidden=false;propsSig=sig;placeProps()}
+  box.classList.toggle('wide',!!m.wide);
+  if(sig===propsSig&&!box.hidden){hidePals();const ins=box.querySelectorAll('input');m.F.forEach((f,i)=>{const n=ins[i];if(n&&n!==document.activeElement){n.value=pfv(f);n.placeholder=f.ph||''}});box.querySelector('.info').innerHTML=m.info;return}
+  park();box.innerHTML=`<div class="ph"><span class="grip" aria-hidden="true">⋮⋮</span><b>${esc(m.t)}</b>${m.pal?'<button data-pc="palx" title="Ver u ocultar las opciones" aria-label="Opciones">▾</button>':'<button data-pc="more" title="Ver todos los datos en el panel" aria-label="Todos los datos">⋯</button>'}<button data-pc="close" title="Cerrar este cuadro" aria-label="Cerrar">×</button></div>
+   <div class="pb">${m.F.map(pfHTML).join('')}${m.extra||''}<div class="info">${m.info}</div></div>${m.pal?'<div class="pal"></div>':''}${m.A.length?`<div class="pa">${m.A.map(a=>AICO[a[0]]?`<button class="ib ${a[2]||''}" data-pc="${a[0]}" title="${esc(a[1])}" aria-label="${esc(a[1])}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICO[AICO[a[0]]]}</svg></button>`:`<button class="tb ${a[2]||''}" data-pc="${a[0]}">${a[1]}</button>`).join('')}</div>`:''}`;
+  if(m.pal){const n=$('#'+m.pal);if(n){box.querySelector('.pal').appendChild(n)}}
+  hidePals();box.hidden=false;propsSig=sig;placeProps();if(window.propsWake)propsWake(m.pal?5000:2500)}
 function placeProps(){const box=$('#props');if(box.hidden)return;const st=$('#stage').getBoundingClientRect();let pos=null;try{pos=JSON.parse(lsGet('lev.propsPos')||'null')}catch(e){}
   const w=box.offsetWidth||300,h=box.offsetHeight||220,ch=$('#chip'),cb=ch&&!ch.hidden?ch.getBoundingClientRect().bottom-st.top+10:0;let x=pos?pos.x:st.width-w-42,y=pos?pos.y:Math.max(68,cb);
   x=clamp(x,8,Math.max(8,st.width-w-8));y=clamp(y,8,Math.max(8,st.height-Math.min(h,st.height-16)-8));box.style.left=x+'px';box.style.top=y+'px'}
 window.addEventListener('resize',()=>placeProps());
-{const box=$('#props');let pd=null,actT=null;const wake=()=>{box.classList.add('on');clearTimeout(actT);actT=setTimeout(()=>box.classList.remove('on'),2500)};box.addEventListener('pointerdown',wake,true);box.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')wake()});
+{const box=$('#props');let pd=null,actT=null;const wake=ms=>{box.classList.add('on');clearTimeout(actT);actT=setTimeout(()=>box.classList.remove('on'),typeof ms==='number'?ms:2500)};window.propsWake=wake;box.addEventListener('pointerdown',wake,true);box.addEventListener('pointermove',e=>{if(e.pointerType!=='touch')wake()});
   box.addEventListener('pointerdown',e=>{if(!e.target.closest('.ph')||e.target.closest('button'))return;e.preventDefault();box.setPointerCapture(e.pointerId);pd={id:e.pointerId,x:e.clientX,y:e.clientY,l:box.offsetLeft,t:box.offsetTop}});
   box.addEventListener('pointermove',e=>{if(!pd||pd.id!==e.pointerId)return;const st=$('#stage').getBoundingClientRect();box.style.left=clamp(pd.l+e.clientX-pd.x,8,st.width-box.offsetWidth-8)+'px';box.style.top=clamp(pd.t+e.clientY-pd.y,8,st.height-50)+'px'});
   const up=e=>{if(!pd||pd.id!==e.pointerId)return;pd=null;lsSet('lev.propsPos',JSON.stringify({x:box.offsetLeft,y:box.offsetTop}))};
   box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up);
+  box.addEventListener('click',e=>{if(e.target.closest('.pal'))setTimeout(()=>{propsSig='';renderProps()},380)},true);
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
     if(c==='wref'){view.wallRef=b.dataset.v;lsSet('lev.wallRef',view.wallRef);const cs=chainSpace();if(cs){pushUndo();cs.ref=view.wallRef;saved();renderAll()}renderProps();return}
     if(c==='wt'){trace.t=+b.dataset.v;renderProps();return}
     if(c==='ws'){view.wallStep=+b.dataset.v;lsSet('lev.wallStep',String(view.wallStep));renderProps();return}
     if(c==='more'){setPanel(true);return}
+    if(c==='palx'){const n=box.querySelector('.pal .elpal');if(n){if(n.hidden)palRender(n.id);n.hidden=!n.hidden}return}
     if(c==='anc'){view.anchor=b.dataset.v;lsSet('lev.anchor',view.anchor);renderProps();draw2D();return}
     if(c==='del'){deleteSel();return}
     if(c==='foto'){const r=b.getBoundingClientRect(),sp=sel.t==='space'&&curSpace(),z=sel.t==='zone'&&curZone();let q=null;if(sp)q=toW(sp,geom(sp).cen);else if(z)q=zoneGeom(z).cen;photoPop(r.left+r.width/2,r.bottom,q?photoCtxAt(q):{piso:view.piso,sid:sp?sp.id:null});return}
     if(c.startsWith('tool:')){setTool(c.slice(5));return}
     chipDo(c,b)});
   box.addEventListener('change',e=>{const el=e.target;if(!el.dataset||!el.dataset.o)return;
+    if(el.dataset.o==='stn'||el.dataset.o==='stch'){const st=curStair(),v=num(el.value,NaN);if(!st||isNaN(v)||v<=0){toast('Escribe un número');propsSig='';renderProps();return}
+      pushUndo();if(el.dataset.o==='stn'){const ch=st.h/Math.max(1,st.n);st.n=Math.max(1,Math.round(v));st.h=Math.round(st.n*ch*1000)/1000}else st.h=Math.round(st.n*v*1000)/1000;saved();renderAll(true);return}
     if(el.dataset.o==='wlen'){const raw=el.value,s=curSpace(),w=curWall();let v=num(raw,NaN);if(isNaN(v)||v<=0||!s||!w){toast('Escribe la medida, por ejemplo 3.45');propsSig='';renderProps();return}
       if(/mm/i.test(raw))v/=1000;else if(/cm/i.test(raw))v/=100;pushUndo();stretchWall(s,w,v);saved();renderAll(true);
       const g=geom(s);if(g.closed&&g.gap>.005)toast('El cierre se ajusta solo: error '+fc(g.gap*100)+' cm');return}
@@ -1732,7 +1772,7 @@ function radialItems(h){const I=[];
   if(h){const t=h.t,e=t==='el'&&curEl(),o=t==='op'&&curOp();
     I.push({k:'props',n:'Medidas',ic:'props'});
     if(t==='wall')I.push({k:'len',n:'Largo',ic:'medida'});
-    if(e&&!(CAT[e.type]||{}).marker)I.push({k:'rot90',n:'Girar 90°',ic:'rot'});
+    if((e&&!(CAT[e.type]||{}).marker)||t==='stair')I.push({k:'rot90',n:'Girar 90°',ic:'rot'});
     if(e)I.push({k:'dup',n:'Duplicar',ic:'dup'});
     if(o&&o.type!=='vano')I.push({k:'otype',n:'Tipo',ic:o.type});
     if(t==='wall'||t==='space')I.push({k:'tool:puerta',n:'Puerta',ic:'puerta'},{k:'tool:ventana',n:'Ventana',ic:'ventana'});
