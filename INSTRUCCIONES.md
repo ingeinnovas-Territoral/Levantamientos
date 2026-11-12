@@ -91,6 +91,11 @@ Con el iPad conectado:
   - Los puntos blancos de las esquinas cambian la forma. El círculo de arriba gira la cubierta.
   - En **Datos** pones la altura del alero, la pendiente de cada lado, el material y el estado. En la cúpula y la bóveda pones la flecha (altura); en el anillo, el ancho y hacia dónde cae el agua.
   - El PDF y el DXF traen una hoja de **planta de cubiertas**, y el cuadro muestra el área en planta y el área inclinada.
+- **Herramienta Espacio** (debajo de Muro): toca dentro de cualquier cuarto encerrado por muros y se vuelve espacio, aunque los muros se hayan dibujado por separado o el cuarto esté dentro de otro (por ejemplo, un muro que parte una sala en dos).
+  - El cuarto encontrado se marca en naranja. Sale una ventana para escribir el nombre con el lápiz o tocar uno de los nombres rápidos (Sala, Cocina, Baño, Alcoba…). Calcula el área solo.
+  - Si después mueves un muro, el espacio y su área se ajustan solos.
+  - Si tocas un espacio que ya existe, sale la misma ventana para cambiarle el nombre. También desde el botón de nombre del cuadro flotante o del menú rápido del lápiz.
+  - Si el cuarto no está bien encerrado (un muro no toca al otro), te avisa.
 - **Espacios:** el nombre y el área solo aparecen cuando el espacio queda cerrado. Mientras esté abierto, se ve como "Muros abiertos".
   - Para volverlo espacio sin cerrarlo, tócalo y luego **Convertir en espacio**.
   - Toca los muros que lo forman; puedes sumar muros de otros tramos y quitar los que no van. El lado que falte se cierra con una línea punteada.
@@ -143,7 +148,9 @@ Con el iPad conectado:
   - Toca lo que quieras borrar.
   - O pasa el lápiz por encima de varios muros, puertas, ventanas y elementos: se marcan en rojo y se borran todos al levantar el lápiz.
   - Al borrar un muro los demás se quedan en su sitio, como en ArchiCAD.
-  - Si te equivocas, ↶ deshace. Con teclado, la tecla Suprimir borra lo seleccionado.
+  - **Para reversar:** después de borrar sale abajo un aviso con el botón **Deshacer**. El cuadro de Borrar también tiene **Deshacer** y **Rehacer**.
+  - En cualquier momento puedes **tocar la pantalla con dos dedos a la vez** (un toque rápido, sin mover) para deshacer lo último, como en Procreate. Funciona para todo, no solo para borrar.
+  - Con teclado, la tecla Suprimir borra lo seleccionado y Cmd + Z deshace.
 - **Cuadro de cada herramienta:** todas las herramientas abren su cuadro flotante al tocarlas, igual que Muro. El cuadro queda medio transparente mientras no lo usas.
   - **Puerta, Ventana, Cubierta, Losa y Elemento:** los tipos salen en el cuadro en tamaño pequeño y la lista se queda abierta. ▾ la recoge.
   - **Vano:** ancho y alto de los vanos nuevos.
