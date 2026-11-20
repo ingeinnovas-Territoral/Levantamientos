@@ -124,6 +124,11 @@ Con el iPad conectado:
 - **Corte:** dibuja la línea de corte con el lápiz; la flecha indica hacia dónde se mira.
   - **Ver corte** lo abre en la pestaña **Cortes**, donde también están las 4 fachadas automáticas. Lo cortado sale relleno y lo de fondo en proyección, con los niveles de cada piso.
   - **Invertir vista** cambia el lado; **Profundidad** define hasta dónde se ve.
+  - **Puertas y ventanas en cortes y fachadas:** tócalas con el lápiz y arrástralas.
+    - Arrastrar desde el medio la sube o la baja (cambia el antepecho) y la corre de lado.
+    - El cuadrito de arriba cambia el alto, el de abajo el antepecho, y los de los lados el ancho.
+    - Las medidas también se escriben en el cuadro flotante: ancho, alto, antepecho y distancia desde la esquina.
+    - En una ventana cortada por la línea de corte solo se cambia la altura.
   - Los cortes y fachadas salen también en el PDF y en el DXF.
 - **Fotos con medidas** (cocinas, baños, cuartos, fachadas…):
   - Con la herramienta **Foto** (la cámara de la barra) tocas en el plano el sitio donde estás y eliges **Tomar foto** o **Desde Fotos**. La foto queda marcada en el plano con una cámara (F1, F2…) y ligada a ese espacio. Arrastra la cámara para moverla y tócala para abrir la foto.

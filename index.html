@@ -1135,17 +1135,17 @@ function viewDef(key){if(key&&key.startsWith('sec:')){const c=(P.sections||[]).f
 function hull(pts){pts=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(pts.length<3)return pts;const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],up=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}up.pop();lo.pop();return lo.concat(up)}
 function lineCutIntervals(polys,PU,PD){const xs=[];polys.forEach(poly=>{for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],da=PD(a),db=PD(b);if((da<0)!==(db<0)){const t=da/(da-db);xs.push(PU(a)+(PU(b)-PU(a))*t)}}});xs.sort((a,b)=>a-b);const out=[];for(let i=0;i+1<xs.length;i+=2)if(xs[i+1]-xs[i]>.005)out.push([xs[i],xs[i+1]]);return out}
 function sectionDL(key){const V=viewDef(key);if(!V)return[];const PU=p=>(p[0]-V.o[0])*V.u[0]+(p[1]-V.o[1])*V.u[1],PD=p=>(p[0]-V.o[0])*V.w[0]+(p[1]-V.o[1])*V.w[1];
-  const prims=[],cuts=[],ly='CORTES',inRange=d=>d>=-1e-6&&d<=V.depth,rect=(u0,u1,z0,z1)=>[[u0,z0],[u1,z0],[u1,z1],[u0,z1]];
+  secBlocks=[];const prims=[],cuts=[],ly='CORTES',inRange=d=>d>=-1e-6&&d<=V.depth,rect=(u0,u1,z0,z1)=>[[u0,z0],[u1,z0],[u1,z1],[u0,z1]];
   const addPrim=(pts,d,fill,st)=>{if(pts.length>=3)prims.push({pts,d,fill,st})};
   /* muros */
   P.spaces.forEach(s=>{const g=geom(s),zb=LZ(s.piso)+(s.npt||0);g.segs.forEach(sg=>{const w=sg.w,hI=wh(w,s,'i'),hF=wh(w,s,'f'),A=toW(s,sg.a),B=toW(s,sg.b),OA=toW(s,sg.oa),OB=toW(s,sg.ob),Q=[A,B,OB,OA],Ds=Q.map(PD);
     if(V.cut&&Math.min(...Ds)<0&&Math.max(...Ds)>0){const iv=lineCutIntervals([Q],PU,PD)[0];if(!iv)return;const ca=mul(add(A,OA),.5),cb=mul(add(B,OB),.5),da=PD(ca),db=PD(cb);let t=Math.abs(da-db)>1e-9?da/(da-db):.5;t=clamp(t,0,1);const sAl=t*sg.L,hh=hI+(hF-hI)*t;
-      const op=w.openings.find(o=>sAl>=o.off&&sAl<=o.off+o.w);if(op){if(op.sill>.01)cuts.push(rect(iv[0],iv[1],zb,zb+op.sill));if(op.sill+op.h<hh-.01)cuts.push(rect(iv[0],iv[1],zb+op.sill+op.h,zb+hh));if(op.type==='ventana'){const um=(iv[0]+iv[1])/2;prims.push({line:[[um,zb+op.sill],[um,zb+op.sill+op.h]],d:-.5,st:'thin'})}}
+      const op=w.openings.find(o=>sAl>=o.off&&sAl<=o.off+o.w);if(op){if(op.sill>.01)cuts.push(rect(iv[0],iv[1],zb,zb+op.sill));if(op.sill+op.h<hh-.01)cuts.push(rect(iv[0],iv[1],zb+op.sill+op.h,zb+hh));if(op.type==='ventana'){const um=(iv[0]+iv[1])/2;prims.push({line:[[um,zb+op.sill],[um,zb+op.sill+op.h]],d:-.5,st:'thin'})}secBlocks.push({sid:s.id,wid:w.id,oid:op.id,a:iv[0],b:iv[1],v0:zb+op.sill,v1:zb+op.sill+op.h,d:-1,mir:false,L:sg.L,vonly:true})}
       else cuts.push(rect(iv[0],iv[1],zb,zb+hh));return}
     const dmin=Math.min(...Ds);if(!inRange(dmin)||Math.max(...Ds)<0)return;const dd=(Ds[0]+Ds[1]+Ds[2]+Ds[3])/4;
     const H=hull([[PU(A),zb],[PU(B),zb],[PU(OB),zb],[PU(OA),zb],[PU(A),zb+hI],[PU(OA),zb+hI],[PU(B),zb+hF],[PU(OB),zb+hF]]);addPrim(H,dd,'elev','thin');
     const nW=rotV(s,sg.n),facing=Math.abs(nW[0]*V.w[0]+nW[1]*V.w[1]);if(facing>.3){const useOuter=(nW[0]*V.w[0]+nW[1]*V.w[1])>0?false:true;const fa=useOuter?sg.oa:sg.a,fb=useOuter?sg.ob:sg.b;
-      w.openings.forEach(o=>{const t0=clamp(o.off/sg.L,0,1),t1=clamp((o.off+o.w)/sg.L,0,1),p0=toW(s,add(fa,mul(sub(fb,fa),t0))),p1=toW(s,add(fa,mul(sub(fb,fa),t1)));const u0=PU(p0),u1=PU(p1);addPrim(rect(Math.min(u0,u1),Math.max(u0,u1),zb+o.sill,zb+o.sill+o.h),dd-.02,'bg','thin');
+      w.openings.forEach(o=>{const t0=clamp(o.off/sg.L,0,1),t1=clamp((o.off+o.w)/sg.L,0,1),p0=toW(s,add(fa,mul(sub(fb,fa),t0))),p1=toW(s,add(fa,mul(sub(fb,fa),t1)));const u0=PU(p0),u1=PU(p1);addPrim(rect(Math.min(u0,u1),Math.max(u0,u1),zb+o.sill,zb+o.sill+o.h),dd-.02,'bg','thin');secBlocks.push({sid:s.id,wid:w.id,oid:o.id,a:Math.min(u0,u1),b:Math.max(u0,u1),v0:zb+o.sill,v1:zb+o.sill+o.h,d:dd,mir:u1<u0,L:sg.L});
         if(o.type==='ventana'){const um=(u0+u1)/2;prims.push({line:[[um,zb+o.sill],[um,zb+o.sill+o.h]],d:dd-.03,st:'thin'})}})}})});
   /* losas */
   (P.slabs||[]).forEach(sl=>{const top=LZ(sl.piso)+sl.z,bot=top-sl.esp,polys=[sl.pts,...(sl.holes||[])];
@@ -1172,6 +1172,13 @@ function sectionDL(key){const V=viewDef(key);if(!V)return[];const PU=p=>(p[0]-V.
   const g0=Math.min(0,...(P.levels||[]).map(l=>l.z));dl.push(L_([x0,g0],[x1,g0],'cutl',ly));
   ensureLevels(P);P.levels.forEach(l=>{dl.push(L_([x0,l.z],[x1,l.z],'dash',ly));dl.push(L_([x1,l.z],[x1-.15,l.z+.2],'ink',ly),L_([x1-.15,l.z+.2],[x1+.15,l.z+.2],'ink',ly),L_([x1+.15,l.z+.2],[x1,l.z],'ink',ly));txt(dl,[x1+.25,l.z+.25],l.name+'  '+(l.z>=0?'+':'')+f2(l.z),2,{al:'l',st:'ink',ly,font:'num'})});
   txt(dl,[x0,bb.y1+.6],V.title,3.2,{al:'l',bold:1,ly});return dl}
+let secBlocks=[];
+/* en cortes y fachadas: arrastrar puertas y ventanas con el lápiz (altura, ancho, alto, posición) */
+function secDown(p){const tol=12/view.scale;let best=null;
+  for(const b of secBlocks){if(p[0]<b.a-tol||p[0]>b.b+tol||p[1]<b.v0-tol||p[1]>b.v1+tol)continue;if(!best||b.d<best.d)best=b}
+  if(!best)return null;const b=best,s=P.spaces.find(z=>z.id===b.sid),w=s&&s.walls.find(z=>z.id===b.wid),o=w&&w.openings.find(z=>z.id===b.oid);if(!o)return null;
+  let edge='M';if(!b.vonly&&Math.abs(p[0]-b.a)<tol)edge='L';else if(!b.vonly&&Math.abs(p[0]-b.b)<tol)edge='R';else if(Math.abs(p[1]-b.v1)<tol)edge='T';else if(Math.abs(p[1]-b.v0)<tol&&o.sill>.02)edge='B';
+  sel={t:'op',sid:s.id,wid:w.id,oid:o.id};return startDrag('eop',p,{obj:o,o0:{...o},edge,mir:b.mir,L:b.L,vonly:b.vonly})}
 function viewList(){const L=(P.sections||[]).map(c=>['sec:'+c.id,'Corte '+c.name+'-'+c.name]);return L.concat([['fac:S','Fachada sur'],['fac:N','Fachada norte'],['fac:E','Fachada este'],['fac:O','Fachada oeste']])}
 
 /* ============ interacción con lápiz ============ */
@@ -1339,7 +1346,7 @@ function dragApply(d,q){
       else if(d.kind==='opA'){const end=o.off+o.w;const a=R3(clamp(rl(al-sg.s0)+sg.s0,0,end-.1));o.off=a;o.w=R3(end-a)}
       else{o.w=R3(clamp(rl(al-o.off),.1,sg.L-o.off))}
       live={p:q,t:'a '+f2(o.off-sg.s0)+' · ancho '+f2(o.w)+' · resto '+f2(Math.max(0,sg.refL-(o.off-sg.s0)-o.w))};break}
-    case 'eop':{const o=d.obj,o0=d.o0,du=dl[0],dv=dl[1],m=d.mir;let off=o0.off,w=o0.w,h=o0.h,sill=o0.sill;
+    case 'eop':{const o=d.obj,o0=d.o0,du=d.vonly?0:dl[0],dv=dl[1],m=d.mir;let off=o0.off,w=o0.w,h=o0.h,sill=o0.sill;
       if(d.edge==='M'){off=o0.off+(m?-du:du);sill=o0.sill+dv}
       else if(d.edge==='L'){if(m)w=o0.w-du;else{off=o0.off+du;w=o0.w-du}}
       else if(d.edge==='R'){if(m){off=o0.off-du;w=o0.w+du}else w=o0.w+du}
@@ -1354,7 +1361,7 @@ function snapSpace(s,d){/* pega un vértice del espacio a vértices de otros esp
   floorVerts(z=>z.id===s.id).forEach(v=>mine.forEach(m=>{const dd=len(sub(v,m));if(dd<bd){bd=dd;best=sub(v,m)}}));if(best){s.x=r2(s.x+best[0]);s.y=r2(s.y+best[1]);return true}return false}
 
 function toolDown(p,pt){
-  const t=view.tool;if(view.mode==='cortes')return null;
+  const t=view.tool;if(view.mode==='cortes')return secDown(p);
   if(view.mode==='alzados')return elevDown(p);
   if(t==='sel'||t==='foto'){const hp=hitPhotoMark(p);if(hp)return{kind:'tapphoto',id:hp.id,p0:p,o0:[hp.x,hp.y],moved:false,snap:snapshot()}}
   if(t==='foto')return{kind:'tapfoto',p0:p,moved:false,snap:snapshot()};
@@ -1532,6 +1539,8 @@ function drawOverlay(tf){
   if(rdraft&&view.tool==='cub')rdraft.forEach((q,i)=>dot(q,i?5:7,i?COL.accent:COL.panel,COL.accent))}
   if(sel.t==='roof'&&view.tool==='sel'&&curRoof()&&curRoof().forma==='poligono'&&sel.edge!=null){const r=curRoof(),a=tf(...r.pts[sel.edge]),b=tf(...r.pts[(sel.edge+1)%r.pts.length]);c.strokeStyle=COL.accent;c.lineWidth=6;c.lineCap='round';c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}
   if(qTarget&&qTarget.wid&&!$('#qedit').hidden){const s=P.spaces.find(z=>z.id===qTarget.sid);if(s){const g=geom(s),sg=g.segs.find(x=>x.w.id===qTarget.wid);if(sg){const fx=toW(s,(view.anchor||'ini')==='ini'?sg.ra:sg.rb),mv=toW(s,(view.anchor||'ini')==='ini'?sg.rb:sg.ra);const a=tf(...fx);c.fillStyle=COL.accent;c.fillRect(a[0]-7,a[1]-7,14,14);dot(mv,6,COL.panel,COL.accent);label(fx,'fija')}}}
+  if(view.mode==='cortes'&&sel.t==='op'){const b=secBlocks.filter(x=>x.oid===sel.oid).sort((x,y)=>x.d-y.d)[0];if(b){const A=tf(b.a,b.v1),B=tf(b.b,b.v0);c.fillStyle=COL.accentwash;c.fillRect(A[0],A[1],B[0]-A[0],B[1]-A[1]);c.strokeStyle=COL.accent;c.lineWidth=2;c.strokeRect(A[0],A[1],B[0]-A[0],B[1]-A[1]);
+    const mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,hs=[[mx,A[1]],[mx,B[1]]].concat(b.vonly?[]:[[A[0],my],[B[0],my]]);hs.forEach(([x,y])=>{c.fillStyle=COL.panel;c.fillRect(x-6,y-6,12,12);c.strokeRect(x-6,y-6,12,12)});}}
   if(live)label(live.p,live.t);
   c.restore();
 }
@@ -1755,7 +1764,7 @@ function toolModel(t){if(!(t in PALT))return null;const id=PALT[t];let ch='';con
   return{t:{puerta:'Puerta',ventana:'Ventana',vano:'Vano',cub:'Cubierta',esc:'Escalera',losa:'Losa',el:'Elemento',pat:'Daño',foto:'Foto',corte:'Corte',sel:'Mover',borrar:'Borrar',esp:'Espacio'}[t]+(ch?' · '+ch:''),F,A:[],info:hint,extra:extra+(t==='borrar'||t==='foto'||t==='esp'?'':roundChips()),pal:id,tool:1,key:'tool:'+t+':'+ch+':'+(t==='borrar'?undoS.length+'/'+redoS.length:'')+':'+JSON.stringify(F.map(x=>x.v))+(view.wallStep||.1),wide:t==='el'||t==='puerta'||t==='ventana'}}
 const AICO={ren:'nombre',foto:'foto',del:'borrar',dup:'dup',rot90:'rot','tool:puerta':'puerta','tool:ventana':'ventana'};
 function renderProps(){const box=$('#props');if(!box)return;
-  const ok=(view.mode==='planta'||view.mode==='alzados')&&!view.pick;
+  const ok=(view.mode==='planta'||view.mode==='alzados'||view.mode==='cortes')&&!view.pick;
   let m=null;const tl=view.tool;
   if(ok&&view.mode==='planta'&&tl==='muro')m=propsHide==='muro'?null:wallToolModel();
   else if(ok&&view.mode==='planta'&&(tl in PALT)&&(tl==='sel'?sel.t==='proj':sel.t!==TOOLOBJ[tl]))m=propsHide==='tool:'+tl?null:toolModel(tl);
