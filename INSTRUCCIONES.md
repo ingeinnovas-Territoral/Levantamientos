@@ -73,6 +73,10 @@ Con el iPad conectado:
   - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
   - En un espacio ya hecho se cambia en **Datos → Medidas tomadas por**.
   - Las distancias de puertas y ventanas se miden desde la esquina de esa misma cara.
+  - **Hacia dónde crece el muro:** en el mismo cuadro escoges si el grueso del muro queda a la **izquierda** o a la **derecha** de la línea que dibujas, mirando en el sentido en que dibujas, o en **automático**.
+    - Mientras arrastras ves el grueso sombreado hacia ese lado. Así la línea que dibujas es siempre la cara que mediste y no tienes que sumar el espesor.
+    - Ejemplo: si recorres el cuarto por dentro en el sentido de las agujas del reloj, escoge **Izquierda**; en sentido contrario, **Derecha**.
+  - **Voltear muro:** si un tramo ya dibujado quedó con el grueso hacia el lado equivocado, selecciónalo y toca **Voltear muro** en el cuadro flotante. El grueso pasa al otro lado y las medidas no cambian.
 - **Todo se redondea:** lo que dibujas o arrastras con el lápiz sale de 10 en 10 cm. Eso vale para los muros, las losas, las cubiertas, los cortes, las escaleras, el tamaño de los elementos, la posición y el ancho de puertas y ventanas, las alturas en los alzados y al correr un muro o una esquina.
   - En el cuadro de cualquier herramienta puedes cambiar el redondeo a 5 cm o a 1 cm. Queda igual para todas las herramientas.
   - Si llegas a una esquina existente, se pega exacto a esa esquina.
