@@ -76,6 +76,9 @@ Con el iPad conectado:
   - **Hacia dónde crece el muro:** en el mismo cuadro escoges si el grueso del muro queda a la **izquierda** o a la **derecha** de la línea que dibujas, mirando en el sentido en que dibujas, o en **automático**.
     - Mientras arrastras ves el grueso sombreado hacia ese lado. Así la línea que dibujas es siempre la cara que mediste y no tienes que sumar el espesor.
     - Ejemplo: si recorres el cuarto por dentro en el sentido de las agujas del reloj, escoge **Izquierda**; en sentido contrario, **Derecha**.
+  - **Desde qué esquina empieza:** en el mismo cuadro escoges si un muro nuevo que arranca (o termina) en la esquina de otro muro se pega a la esquina **Interior**, al **Eje** o a la esquina **Exterior**. También puedes dejar **Cercana**, que toma la que esté más cerca del lápiz.
+    - Con la herramienta Muro activa, las esquinas donde se va a pegar salen marcadas con un circulito naranja.
+    - Basta con tocar cerca de la esquina: el muro arranca exactamente en la que escogiste.
   - **Voltear muro:** si un tramo ya dibujado quedó con el grueso hacia el lado equivocado, selecciónalo y toca **Voltear muro** en el cuadro flotante. El grueso pasa al otro lado y las medidas no cambian.
 - **Todo se redondea:** lo que dibujas o arrastras con el lápiz sale de 10 en 10 cm. Eso vale para los muros, las losas, las cubiertas, los cortes, las escaleras, el tamaño de los elementos, la posición y el ancho de puertas y ventanas, las alturas en los alzados y al correr un muro o una esquina.
   - En el cuadro de cualquier herramienta puedes cambiar el redondeo a 5 cm o a 1 cm. Queda igual para todas las herramientas.

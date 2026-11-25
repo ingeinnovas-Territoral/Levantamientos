@@ -1244,7 +1244,7 @@ function refIcon(k){const wall='<rect x="6" y="18" width="32" height="9" fill="c
 function renderWallPal(){const r=view.wallRef||'int',t=trace.t;$('#wallpal').innerHTML='<p>¿Desde qué cara tomas las medidas? Lo que dibujes o escribas se mide sobre esa cara (línea naranja); el espesor crece hacia el otro lado.</p><div class="palgrid">'+REFS.map(([k,n])=>`<button data-wr="${k}" aria-pressed="${r===k}">${refIcon(k)}<span>${n}</span></button>`).join('')+`</div><p style="margin-top:8px">Espesor del muro</p><div class="row-btns">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="btn sm${Math.abs(t-v)<1e-6?' on':''}" data-wt="${v}">${f2(v)}</button>`).join('')}</div><p style="margin-top:8px">Al dibujar, redondear el largo a</p><div class="row-btns">${[[.01,'1 cm'],[.05,'5 cm'],[.1,'10 cm']].map(([v,n])=>`<button class="btn sm${Math.abs((view.wallStep||.1)-v)<1e-6?' on':''}" data-ws="${v}">${n}</button>`).join('')}</div>`}
 $('#wallpal').addEventListener('click',e=>{const b=e.target.closest('[data-wr]');if(b){view.wallRef=b.dataset.wr;lsSet('lev.wallRef',view.wallRef);const cs=chainSpace();if(cs){pushUndo();cs.ref=view.wallRef;saved();renderAll()}renderWallPal();toast('Medidas por '+refName(view.wallRef).toLowerCase());return}const t=e.target.closest('[data-wt]');if(t){trace.t=+t.dataset.wt;renderWallPal();toast('Espesor '+f2(trace.t)+' m');return}const w=e.target.closest('[data-ws]');if(w){view.wallStep=+w.dataset.ws;lsSet('lev.wallStep',String(view.wallStep));renderWallPal();toast(view.wallStep>=.1?'Los muros salen de 10 en 10 cm (3.10, 3.20…)':view.wallStep>=.05?'Los muros salen de 5 en 5 cm (3.10, 3.15…)':'Los muros salen al centímetro')}});
 view.wallStep=+(lsGet('lev.wallStep')||.1)||.1;
-view.wallRef=lsGet('lev.wallRef')||'int';view.wallSide=lsGet('lev.wallSide')||'auto';
+view.wallRef=lsGet('lev.wallRef')||'int';view.wallSide=lsGet('lev.wallSide')||'auto';view.wallFrom=lsGet('lev.wallFrom')||'';
 function renderStairPal(){const t=view.stairType||'recta',g=view.stairGiro||'der';$('#stairpal').innerHTML='<p>Tipo de escalera. Arrastra desde el arranque hacia donde sube.</p><div class="palgrid">'+STYPES.map(([k,n])=>`<button data-st="${k}" aria-pressed="${t===k}">${stairIcon(k)}<span>${n}</span></button>`).join('')+`</div><div class="row-btns" style="margin-top:6px"><button class="btn sm${g==='der'?' on':''}" data-sg="der">Gira a la derecha</button><button class="btn sm${g==='izq'?' on':''}" data-sg="izq">Gira a la izquierda</button></div>`}
 function stairIcon(k){const st=newStair({tipo:k,x:0,y:0,rot:90,h:2.8,n:12,ancho:1,huella:.28,giro:'der',diam:1.8}),G=stairGeo(st),dl=[];G.T.forEach(t=>dl.push({k:'poly',pts:t.poly,closed:1,fill:'el',st:'thin'}));G.LD.forEach(l=>dl.push({k:'poly',pts:l.poly,closed:1,fill:'el',st:'thin'}));for(let i=0;i<G.path.length-1;i++)dl.push(L_(G.path[i],G.path[i+1],'ink'));return dlSVG(dl)}
 $('#stairpal').addEventListener('click',e=>{const b=e.target.closest('[data-st]');if(b){view.stairType=b.dataset.st;renderStairPal();const st=curStair();if(st&&sel.t==='stair'){pushUndo();st.tipo=view.stairType;saved();renderAll()}return}const g=e.target.closest('[data-sg]');if(g){view.stairGiro=g.dataset.sg;renderStairPal();const st=curStair();if(st&&sel.t==='stair'){pushUndo();st.giro=view.stairGiro;saved();renderAll()}}});
@@ -1261,9 +1261,18 @@ const SNAPPX=14;
 function floorVerts(skip,all){const out=[];P.spaces.filter(s=>s.piso===view.piso).forEach(s=>{const g=geom(s);(g.closed?g.Pref:g.V).forEach((p,i)=>{if(skip&&skip(s,i))return;out.push(toW(s,p))});if(all&&g.ref!=='int'){g.P.forEach(p=>out.push(toW(s,p)))}if(all)g.segs.forEach(sg=>out.push(toW(s,sg.oa)))});return out}
 const r2=v=>Math.round(v*100)/100, r5=v=>Math.round(v*20)/20;
 function snapPt(p,skip){const tol=SNAPPX/view.scale;let best=null,bd=tol;floorVerts(skip,!skip).forEach(v=>{const d=len(sub(v,p));if(d<bd){bd=d;best=v}});return best?{p:best.slice(),v:true}:{p:[r5(p[0]),r5(p[1])],v:false}}
+/* esquinas de los muros existentes: interior, eje y exterior de cada esquina */
+function cornerGroups(){const out=[],cs=chainSpace();P.spaces.filter(s=>s.piso===view.piso).forEach(s=>{const g=geom(s),n=s.walls.length;if(!n)return;const m=g.closed?n:n+1,RV=g.closed?g.Pref:g.V;
+  let swap=false;if(g.closed){const O=g.segs.map(x=>x.oa),ar=pts=>{let a=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length];a+=p[0]*q[1]-q[0]*p[1]}return Math.abs(a/2)};swap=ar(O)<ar(g.P)}
+  for(let k=0;k<m;k++){const pin=toW(s,g.P[Math.min(k,g.P.length-1)]),oe=g.closed?g.segs[k].oa:(k<n?g.segs[k].oa:g.segs[n-1].ob),ext=toW(s,oe),a=swap?ext:pin,b=swap?pin:ext;
+    out.push({s,k,ref:toW(s,RV[k]),int:a,ext:b,eje:mul(add(a,b),.5),own:s===cs})}});return out}
+const wallFromMode=()=>view.wallFrom||view.wallRef||'int';
+function cornerAt(p,skipPt){const tol=Math.max(SNAPPX,22)/view.scale,mode=wallFromMode();let best=null,bq=null,bd=tol;
+  cornerGroups().forEach(c=>{(c.own?[c.ref]:[c.int,c.eje,c.ext]).forEach(q=>{const d=len(sub(q,p));if(d<bd){bd=d;best=c;bq=q}})});
+  if(!best)return null;const pt=best.own?best.ref:mode==='auto'?bq:(best[mode]||best.int);if(skipPt&&len(sub(pt,skipPt))<1e-3)return null;return pt.slice()}
 function snapSeg(A,Q){
-  const tol=SNAPPX/view.scale,vs=floorVerts(),va=floorVerts(null,true);
-  let vb=null,bd=tol;va.forEach(v=>{const d=len(sub(v,Q));if(d<bd&&len(sub(v,A))>1e-3){bd=d;vb=v}});
+  const tol=SNAPPX/view.scale,vs=floorVerts();
+  const vb=cornerAt(Q,A);
   if(vb){const d=sub(vb,A);return{B:vb.slice(),L:r2(len(d)),ang:normA(deg(Math.atan2(d[1],d[0]))),vtx:true}}
   const d=sub(Q,A);let ang=deg(Math.atan2(d[1],d[0]));const rr=Math.round(ang/45)*45,ortho=Math.abs(ang-rr)<8;
   ang=ortho?rr:Math.round(ang*2)/2;const u=[Math.cos(rad(ang)),Math.sin(rad(ang))];
@@ -1424,13 +1433,13 @@ function muroDown(p){
   if(s&&s.walls.length){const e=toW(s,geom(s).end);if(len(sub(e,p))<near)return{kind:'muro',A:e,s,p0:p,snap:snapshot(),moved:false}}
   for(const z of P.spaces.filter(z=>z.piso===view.piso&&!z.closed&&z.walls.length)){const e=toW(z,geom(z).end);if(len(sub(e,p))<near){drawSid=z.id;return{kind:'muro',A:e,s:z,p0:p,snap:snapshot(),moved:false}}}
   if(s&&!s.walls.length){P.spaces=P.spaces.filter(x=>x!==s)}
-  drawSid=null;const sp=snapPt(p);return{kind:'muro',A:sp.p,s:null,p0:p,snap:snapshot(),moved:false};
+  drawSid=null;const cp=cornerAt(p),sp=cp?{p:cp,v:true}:snapPt(p);return{kind:'muro',A:sp.p,s:null,p0:p,snap:snapshot(),moved:false};
 }
 function muroMove(d,q){d.prev=snapSeg(d.A,q);const sg=d.prev;let t=f2(sg.L)+' m';if(!sg.vtx&&!sg.ortho)t+=' · '+f2(sg.ang).replace('.00','')+'°';
   if(d.s&&d.s.walls.length>=2&&len(sub(sg.B,toW(d.s,[0,0])))<.005)t+=' · cierra';live={p:q,t}}
 function muroUp(d){const sg=d.prev;live=null;if(!sg||sg.L<.05){return false}
   let s=d.s;
-  if(!s){const ex=P.spaces.filter(z=>z.piso===view.piso);s=newSpace('',r2(d.A[0]),r2(d.A[1]),view.piso,ex[0]?ex[0].npt:0);s.ref=view.wallRef||'int';s.side=view.wallSide||'auto';P.spaces.push(s);drawSid=s.id}
+  if(!s){const ex=P.spaces.filter(z=>z.piso===view.piso);s=newSpace('',Math.round(d.A[0]*1000)/1000,Math.round(d.A[1]*1000)/1000,view.piso,ex[0]?ex[0].npt:0);s.ref=view.wallRef||'int';s.side=view.wallSide||'auto';P.spaces.push(s);drawSid=s.id}
   s.walls.push(newWall(sg.L,normA(sg.ang-(s.rot||0)),trace.t));trace.dir=normA(sg.ang-(s.rot||0)+90);
   if(s.walls.length>=3&&len(sub(sg.B,toW(s,[0,0])))<.01){if(!s.name)s.name=nextSpaceName();s.closed=true;drawSid=null;sel={t:'space',sid:s.id};toast(s.name+' cerrado · '+f2(geom(s).area)+' m²')}
   else sel={t:'space',sid:s.id};
@@ -1520,6 +1529,7 @@ function drawOverlay(tf){
   const label=(p,t)=>{const [x,y]=tf(p[0],p[1]);c.font='600 14px '+COL.num;const w=c.measureText(t).width+14;let lx=x+18,ly=y-34;const r=cv.getBoundingClientRect();if(lx+w>r.width-8)lx=x-18-w;if(ly<6)ly=y+18;c.fillStyle=COL.ink;c.beginPath();if(c.roundRect)c.roundRect(lx,ly,w,24,6);else c.rect(lx,ly,w,24);c.fill();c.fillStyle=COL.paper;c.textBaseline='middle';c.textAlign='left';c.fillText(t,lx+7,ly+12)};
   if(view.mode==='planta'){
     drawPhotoMarks(c,tf);
+    if(view.tool==='muro'&&wallFromMode()!=='auto'){const md=wallFromMode();c.strokeStyle=COL.accent;c.lineWidth=1.6;cornerGroups().forEach(g=>{if(g.own)return;const q=tf(...g[md]);c.beginPath();c.arc(q[0],q[1],4.5,0,Math.PI*2);c.fillStyle=COL.panel;c.fill();c.stroke()})}
     if(view.espPrev&&view.espPrev.length>=3){c.beginPath();view.espPrev.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.closePath();c.fillStyle=COL.accentwash;c.fill();c.strokeStyle=COL.accent;c.lineWidth=3;c.stroke()}
     if(drag&&drag.kind==='newstair'&&drag.B){const G=stairGeo(stairFromDrag(drag));c.setLineDash([5,4]);c.strokeStyle=COL.accent;c.lineWidth=1.5;c.fillStyle=COL.accentwash;G.T.concat(G.LD).forEach(t=>{c.beginPath();t.poly.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.closePath();c.fill();c.stroke()});c.setLineDash([])}
     if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(o){const g=geom(s),sg=g.segs[s.walls.indexOf(w)],A=add(sg.a,mul(sg.d,o.off)),B=add(sg.a,mul(sg.d,o.off+o.w)),N=mul(sg.n,sg.t);
@@ -1746,9 +1756,12 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
 function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1;
   const x=`<div class="seg">${REFS.map(([k,n])=>`<button data-pc="wref" data-v="${k}" aria-pressed="${r===k}" title="Medidas por ${n.toLowerCase()}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
    <div class="cap">El muro crece hacia (mirando en el sentido en que dibujas)</div><div class="seg">${[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>`<button data-pc="wside" data-v="${k}" aria-pressed="${(view.wallSide||'auto')===k}">${sideIcon(k)}<span>${n}</span></button>`).join('')}</div>
+   <div class="cap">Empezar en la esquina de otro muro por</div><div class="seg">${[['int','Interior'],['eje','Eje'],['ext','Exterior'],['auto','Cercana']].map(([k,n])=>`<button data-pc="wfrom" data-v="${k}" aria-pressed="${wallFromMode()===k}">${cornerIcon(k)}<span>${n}</span></button>`).join('')}</div>
    <div class="cap">Espesor (m)</div><div class="chips">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="${Math.abs(t-v)<1e-6?'on':''}" data-pc="wt" data-v="${v}">${f2(v).replace(/^0/,'')}</button>`).join('')}</div>
    ${roundChips()}`;
-  return{t:'Muro nuevo',F:[],A:[],info:'La línea naranja que dibujas es la cara que mediste. El sombreado muestra hacia dónde queda el grueso del muro.',extra:x,key:'muro'+r+t+st+(view.wallSide||'auto')}}
+  return{t:'Muro nuevo',F:[],A:[],info:'La línea naranja que dibujas es la cara que mediste. El sombreado muestra hacia dónde queda el grueso del muro.',extra:x,key:'muro'+r+t+st+(view.wallSide||'auto')+wallFromMode()}}
+function cornerIcon(k){const L='<path d="M7 5h30v8H15v17H7z" fill="currentColor" fill-opacity=".3" stroke="currentColor"/>',dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.6" fill="var(--accent)"/>`;
+  return`<svg viewBox="0 0 44 34" aria-hidden="true">${L}${k==='int'?dot(15,13):k==='ext'?dot(7,5):k==='eje'?dot(11,9):dot(15,13)+dot(11,9)+dot(7,5)}</svg>`}
 function sideIcon(k){const ar='<path d="M22 31V6M22 6l-4.5 5M22 6l4.5 5" stroke="var(--accent)" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
   if(k==='izq')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="12" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
   if(k==='der')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="22" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
@@ -1807,6 +1820,7 @@ window.addEventListener('resize',()=>placeProps());
   box.addEventListener('click',e=>{if(e.target.closest('.pal'))setTimeout(()=>{propsSig='';renderProps()},380)},true);
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
+    if(c==='wfrom'){view.wallFrom=b.dataset.v;lsSet('lev.wallFrom',view.wallFrom);renderProps();draw2D();return}
     if(c==='wside'){view.wallSide=b.dataset.v;lsSet('lev.wallSide',view.wallSide);const cs=chainSpace();if(cs){pushUndo();cs.side=view.wallSide;saved();renderAll()}renderProps();draw2D();return}
     if(c==='wflip'){const sp=curSpace();if(sp){pushUndo();sp.side=effSide(sp)==='der'?'izq':'der';saved();renderAll();toast('El grueso del muro pasó al otro lado; las medidas se mantienen')}return}
     if(c==='wref'){view.wallRef=b.dataset.v;lsSet('lev.wallRef',view.wallRef);const cs=chainSpace();if(cs){pushUndo();cs.ref=view.wallRef;saved();renderAll()}renderProps();return}
