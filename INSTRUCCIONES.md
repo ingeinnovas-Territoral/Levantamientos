@@ -68,6 +68,15 @@ Con el iPad conectado:
 ## Trabajar con el Apple Pencil
 
 - **El lápiz dibuja y arrastra. El dedo mueve el plano**, y con dos dedos se hace zoom. Si no tienes el lápiz a mano, activa **Dedo** en la barra.
+- **Muros sueltos o cuartos encadenados:** en el cuadro de **Muro** escoges el modo.
+  - **Muros sueltos** (viene así): cada trazo es un muro aparte. No se encadena con el anterior, no intenta cerrar cuartos y no muestra nada antes de que lo dibujes. Donde dos muros se tocan en una esquina, la esquina se rellena sola. Para volver un cuarto espacio, usa la herramienta **Espacio**.
+  - **Cuartos encadenados:** como antes; cada muro sigue desde el anterior y el cuarto se cierra al volver al punto inicial.
+- **Estado del muro** (como la renovación de ArchiCAD): **Existente** (gris), **Nuevo** (verde) o **A demoler** (rojo punteado). Se escoge en el cuadro de Muro antes de dibujar, o después en el cuadro de un muro o de un espacio (cambia todos sus muros). Se ve en planta, en el 3D, en el PDF y en el DXF (capas MUROS-NUEVOS y MUROS-DEMOLER).
+- **Líneas** (herramienta debajo de Espacio): línea, polilínea o polígono, con el color que escojas, solo como referencia para marcar zonas. No son muros y no calculan área.
+  - **Línea:** arrastra.
+  - **Polilínea:** toca cada punto y toca otra vez el último (o **Terminar**).
+  - **Polígono:** toca cada esquina y toca la primera para cerrar.
+  - Al tocarla con Mover le cambias el color, le escribes una **nota** (se ve en el plano), la arrastras o mueves sus puntos. Salen en el DXF en la capa LINEAS.
 - **Muro:** toca el punto de inicio y arrastra. El muro se ajusta a 90° y a las esquinas, y la medida aparece mientras dibujas. Sigue desde el punto naranja; cuando termines en el punto inicial, el espacio se cierra solo.
 - **Cara de medición (como la línea de referencia de ArchiCAD):** al tocar **Muro** aparece el cuadro flotante **Muro nuevo**. Ahí eliges con los dibujos si tus medidas son por la **cara interior**, el **eje** o la **cara exterior**, el espesor y el redondeo del largo.
   - Lo que dibujas o escribes se mide sobre esa cara (la línea naranja del dibujo) y el espesor crece hacia el otro lado. El área del espacio siempre se calcula por dentro.
@@ -114,6 +123,10 @@ Con el iPad conectado:
 - **Elemento** (columnas, vigas, aparatos, tanques…): elige el elemento, tócalo en el plano y arrástralo a donde quieras. Cerca de una esquina o de un muro se pega solo.
   - El círculo de arriba lo gira.
   - El punto de la esquina cambia su tamaño.
+- **Puertas y ventanas por tipos (V1, V2, P1…):** la puerta o ventana nueva sale igual a la última que configuraste de ese tipo.
+  - Si cambias el ancho, el alto, el antepecho o el tipo de una, cambian todas las de su mismo tipo (te avisa cuántas).
+  - Para que una sea diferente, toca **Separar como tipo nuevo** en su cuadro: queda como V2 (o P2) y ya no arrastra a las demás.
+  - El cuadro de vanos y los planos muestran el tipo de cada una.
 - **Tipos de puertas y ventanas:** al tocar Puerta o Ventana se abre la biblioteca. Elige el tipo y toca el muro donde va.
   - Puertas: batiente de 1 o 2 hojas, vaivén, corrediza, corrediza empotrada, plegable, pivotante, puerta-ventana, enrollable, garaje seccional y reja.
   - Ventanas: corrediza, batiente, proyectante, basculante, fija, guillotina, celosía y ventanal.
@@ -121,7 +134,7 @@ Con el iPad conectado:
 - **Pisos:** en el selector de abajo eliges el piso o tocas **+ Agregar piso**.
   - En **Datos** (sin nada seleccionado) defines el nombre, la cota y la altura de cada piso.
   - Al dibujar un piso de arriba, los muros del piso de abajo se ven de fondo como referencia.
-- **Losa:** arrastra de esquina a esquina, o toca dentro de un espacio para crear la losa con su forma.
+- **Losa** (su contorno siempre se ve en la planta)**:** arrastra de esquina a esquina, o toca dentro de un espacio para crear la losa con su forma.
   - Arriba cambias el espesor y el nivel, o agregas un **vacío** (para escaleras o patios) tocando sus esquinas.
 - **Escalera:** en el cuadro de la herramienta eliges el tipo (recta, en L, en U o caracol) y la huella, contrahuella y ancho que prefieres. Luego arrastras el lápiz desde el arranque **hasta donde llega**.
   - **La distancia que arrastras es el largo de la escalera.** Los escalones se reparten solos con la huella más cercana a la que escogiste. Por ejemplo, 1.50 m dan 5 escalones de 0.30. Mientras arrastras ves la escalera en naranja con el largo, los escalones y cuánto sube.
@@ -177,6 +190,18 @@ Con el iPad conectado:
   - **Mover** y **Borrar:** qué hacer con el lápiz.
   - Todas, menos Foto y Borrar, traen el redondeo.
 - **Panel de datos:** se muestra y se oculta con el botón **Panel** de arriba o con la pestaña **‹ ›** del borde derecho. Viene oculto para dejar todo el espacio al plano.
+
+## Vista 3D
+- **Texturas:** muros de ladrillo, placas de concreto y ventanas de vidrio, hechas dentro de la app (funcionan sin internet). El botón **Texturas** las quita o las pone.
+- **Puertas y ventanas** se ven con marco, vidrio, hojas y divisiones según su tipo (corrediza, batiente, guillotina, celosía, reja, garaje…).
+- **Muros por estado:** existentes en ladrillo normal, nuevos en verde y a demoler en rojo transparente. El cuadro de **convenciones** abajo a la izquierda lo explica.
+- **Moverse:**
+  - **Girar:** arrastra con el lápiz para girar alrededor del modelo; con dos dedos acercas y mueves.
+  - **Recorrer:** como si caminaras por dentro. Arrastra para mirar alrededor; con dos dedos (o pellizcando) caminas.
+  - **Doble toque** sobre un punto: la vista se acerca a ese punto (en Recorrer, caminas hasta allá).
+  - **Sensibilidad:** la barra de arriba hace que el lápiz gire y acerque más despacio o más rápido.
+  - **Ver todo** vuelve a mostrar el proyecto completo.
+- **Seleccionar en 3D:** toca un muro, puerta, ventana, losa, escalera o elemento y sale su cuadro con qué es y sus medidas. En un muro puedes cambiarle el estado (existente, nuevo o a demoler) ahí mismo. Si la cubierta estorba, apágala con **Cubiertas**.
 
 ## Uso diario sin internet
 
