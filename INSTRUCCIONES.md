@@ -136,6 +136,9 @@ Con el iPad conectado:
   - Los cortes y fachadas salen también en el PDF y en el DXF.
 - **Fotos con medidas** (cocinas, baños, cuartos, fachadas…):
   - Con la herramienta **Foto** (la cámara de la barra) tocas en el plano el sitio donde estás y eliges **Tomar foto** o **Desde Fotos**. La foto queda marcada en el plano con una cámara (F1, F2…) y ligada a ese espacio. Arrastra la cámara para moverla y tócala para abrir la foto.
+  - **Para abarcar más área** (el iPad Air solo tiene una cámara trasera, sin gran angular):
+    - **Panorámica:** en la app Cámara del iPad escoge el modo **PANO**, gira despacio de un lado al otro del cuarto y después, en Levantamientos, toca **Desde Fotos** y elígela. La panorámica se guarda con más resolución para que se puedan leer las medidas.
+    - **Frontal · más ancha:** usa la cámara de la pantalla, que abarca más que la trasera aunque tiene menos detalle.
   - También puedes tomarla desde la pestaña **Fotos** de arriba, que muestra todas las fotos del levantamiento, o con el botón de cámara del cuadro de medidas de un espacio.
   - En la foto, con **Medida** arrastras el lápiz de un extremo al otro de lo que mediste y escribes la medida en la casilla (2.40, o 2,40). Con **Nota** tocas y escribes un texto (enchape, sin pañete, humedad…).
   - Toca una medida para cambiarla o borrarla. Arrastra sus puntas para ajustarla o el número para correrla. Con dos dedos acercas o alejas la foto.
