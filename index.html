@@ -344,7 +344,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=24;
+const APPVER=25;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -1806,7 +1806,9 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
   else return null;
   return{t,F,A,info,extra:typeof extra==='string'?extra:''}}
 function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1;
-  const x=`<div class="chips">${[['sueltos','Muros sueltos'],['cuartos','Cuartos encadenados']].map(([k,n])=>`<button class="${wallMode()===k?'on':''}" data-pc="wmode" data-v="${k}">${n}</button>`).join('')}</div>
+  const ad=(view.wallRef||'int')==='int'&&wallFromMode()==='int',af=view.wallRef==='ext'&&wallFromMode()==='ext';
+  const x=`<div class="cap" style="font-weight:600;color:var(--ink)">Mido el muro desde</div><div class="seg">${[['in','Adentro',ad],['out','Afuera',af]].map(([k,n,on])=>`<button data-pc="wdesde" data-v="${k}" aria-pressed="${on}">${k==='in'?refIcon('int'):refIcon('ext')}<span>${n}</span></button>`).join('')}</div>
+   <div class="chips">${[['sueltos','Muros sueltos'],['cuartos','Cuartos encadenados']].map(([k,n])=>`<button class="${wallMode()===k?'on':''}" data-pc="wmode" data-v="${k}">${n}</button>`).join('')}</div>
    <div class="cap">Estado del muro</div>${renoChips(view.wallReno||'exist','wreno')}
    <div class="cap">Medidas por</div><div class="seg">${REFS.map(([k,n])=>`<button data-pc="wref" data-v="${k}" aria-pressed="${r===k}" title="Medidas por ${n.toLowerCase()}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
    <div class="cap">El muro crece hacia (mirando en el sentido en que dibujas)</div><div class="seg">${[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>`<button data-pc="wside" data-v="${k}" aria-pressed="${(view.wallSide||'auto')===k}">${sideIcon(k)}<span>${n}</span></button>`).join('')}</div>
@@ -1877,6 +1879,7 @@ window.addEventListener('resize',()=>placeProps());
   box.addEventListener('click',e=>{if(e.target.closest('.pal'))setTimeout(()=>{propsSig='';renderProps()},380)},true);
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
+    if(c==='wdesde'){const v=b.dataset.v==='in'?'int':'ext';view.wallRef=v;view.wallFrom=v;lsSet('lev.wallRef',v);lsSet('lev.wallFrom',v);const cs=chainSpace();if(cs){pushUndo();cs.ref=v;saved();renderAll()}renderProps();draw2D();toast(v==='int'?'La línea que dibujas es la cara de adentro y arrancas en las esquinas de adentro':'La línea que dibujas es la cara de afuera y arrancas en las esquinas de afuera');return}
     if(c==='wmode'){view.wallMode=b.dataset.v;lsSet('lev.wallMode',view.wallMode);endChain();renderProps();draw2D();toast(view.wallMode==='sueltos'?'Cada trazo es un muro aparte. Para volverlo cuarto usa la herramienta Espacio.':'Los muros se encadenan y el cuarto se cierra al volver al punto inicial.');return}
     if(c==='wreno'){view.wallReno=b.dataset.v;lsSet('lev.wallReno',view.wallReno);renderProps();return}
     if(c==='reno'){const v=b.dataset.v,ws=sel.t==='wall'&&curWall()?[curWall()]:sel.t==='space'&&curSpace()?curSpace().walls:[];if(ws.length){pushUndo();ws.forEach(w=>w.reno=v);saved();renderAll(true);if(view.mode==='3d')build3D(false)}return}

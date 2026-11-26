@@ -68,6 +68,7 @@ Con el iPad conectado:
 ## Trabajar con el Apple Pencil
 
 - **El lápiz dibuja y arrastra. El dedo mueve el plano**, y con dos dedos se hace zoom. Si no tienes el lápiz a mano, activa **Dedo** en la barra.
+- **Mido el muro desde Adentro o Afuera:** es lo primero del cuadro de **Muro**. Con **Adentro**, la línea que dibujas es la cara de adentro y los muros nuevos arrancan en las esquinas de adentro. Con **Afuera**, es la cara de afuera y arrancan en las esquinas de afuera. Más abajo, **El muro crece hacia** indica de qué lado del trazo queda el grueso.
 - **Muros sueltos o cuartos encadenados:** en el cuadro de **Muro** escoges el modo.
   - **Muros sueltos** (viene así): cada trazo es un muro aparte. No se encadena con el anterior, no intenta cerrar cuartos y no muestra nada antes de que lo dibujes. Donde dos muros se tocan en una esquina, la esquina se rellena sola. Para volver un cuarto espacio, usa la herramienta **Espacio**.
   - **Cuartos encadenados:** como antes; cada muro sigue desde el anterior y el cuarto se cierra al volver al punto inicial.
