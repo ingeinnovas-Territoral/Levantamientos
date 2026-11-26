@@ -98,6 +98,19 @@ Con el iPad conectado:
   - Lo que **escribes** en el cuadro de medidas o en una cota se respeta tal cual (por ejemplo 3.12).
 - **Medida exacta:** toca la cota de un muro, escribe la medida y toca OK.
   - Antes, elige **Fija inicio** o **Fija final**: esa esquina se queda quieta (cuadrito naranja) y el muro crece hacia la otra. Todo lo que está más allá de la esquina libre se corre con ella, como estirar en ArchiCAD.
+- **Cotas automáticas** (como en ArchiCAD, ordenadas en líneas):
+  - Cada muro tiene su largo por la cara que mediste.
+  - Si el muro tiene puertas, ventanas o vanos, va una cadena con los machones y los vanos. En la fachada va por fuera; si al otro lado hay otro cuarto, va por dentro para no montarse con las del vecino.
+  - Afuera de toda la planta van las **cotas generales**, abajo y a la izquierda: los quiebres de la fachada y el largo total.
+  - También salen las cotas de escaleras. Las líneas y las columnas se pueden activar.
+  - Al seleccionar un mueble o elemento salen en verde las distancias a los muros. Al seleccionar una línea o una losa salen las medidas de sus lados.
+  - El botón **Cotas** de abajo las muestra u oculta todas. En la herramienta **Medir** eliges cuáles salen: muros, vanos, generales, columnas, escaleras, líneas. Lo que elijas sale también en el PDF y el DXF.
+- **Medir (cota a mano):** para lo que no se acota solo, como la distancia entre dos muros, un mueble o un detalle.
+  - Arrastra el lápiz de un punto a otro. Se pega a las esquinas (las tres caras del muro), a los bordes de los vanos, a los elementos y a las líneas. Un cuadrito indica que se pegó a un punto; una rayita, que se pegó a la cara de un muro (mide en perpendicular).
+  - Elige **Alineada**, **Horizontal** o **Vertical**.
+  - Arrastra la línea de la cota para alejarla y las puntas para cambiar lo que mide.
+  - En el cuadro puedes poner un texto en lugar del número (por ejemplo "aprox.").
+  - Se borra con el borrador o con el botón del cuadro, y ↶ deshace.
 - **Puerta, Ventana y Vano:** toca el muro donde va y arrástralo a su sitio. Los puntos de los extremos cambian el ancho.
 - **Cubierta:** al tocar la herramienta eliges la forma y la dibujas con el lápiz.
   - **Rectangular, bóveda o anillo/estadio:** arrastra de una esquina a la otra.

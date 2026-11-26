@@ -212,7 +212,7 @@ main.nopanel aside{display:none}
 .props .seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accentwash);font-weight:600}
 .props .cap{grid-column:1/-1;font-size:10px;color:var(--ink2);margin-top:2px}
 .props .chips{grid-column:1/-1;display:flex;gap:3px;flex-wrap:wrap}
-.props .chips button{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;font:500 11.5px var(--f-num);height:27px;cursor:pointer;padding:0 2px}
+.props .chips button{flex:1;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;font:500 11.5px var(--f-num);height:27px;cursor:pointer;padding:0 2px}.props .chips.dset button{flex:1 0 30%}.props .chips.dset button.dsall{flex:1 0 100%}
 .props .chips button.on{border-color:var(--accent);background:var(--accentwash);font-weight:700}
 .radial{position:absolute;z-index:9;width:0;height:0}
 .radial button{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10.5px;line-height:1.1;box-shadow:0 6px 18px rgba(0,0,0,.22);cursor:pointer;transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0;transition:transform .16s ease-out,opacity .12s;padding:0}
@@ -319,7 +319,7 @@ main.nopanel aside{display:none}
         <button class="btn" id="tFit">Ajustar vista</button>
         <select id="tPiso" aria-label="Piso"></select>
         <select id="tView" aria-label="Vista de corte o fachada" hidden></select>
-        <button class="btn on" id="tDims" aria-pressed="true">Cotas de vanos</button>
+        <button class="btn on" id="tDims" aria-pressed="true">Cotas</button>
         <button class="btn on" id="tRoof" aria-pressed="true">Cubiertas</button>
       </div>
       <div id="hud"></div>
@@ -353,7 +353,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=30;
+const APPVER=31;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -595,19 +595,79 @@ function roofBox(s,g){let xs=[],ys=[];g.segs.forEach(sg=>[sg.a,sg.b,sg.oa,sg.ob]
 const L_=(a,b,st,ly)=>({k:'line',a,b,st,ly});
 function txt(dl,p,s,mm,o={}){dl.push(Object.assign({k:'text',p,s,mm,ang:0,al:'c',st:'ink',ly:'TEXTOS',dy:0},o))}
 function dimDL(dl,a,b,off,t,o={}){
-  const u=unit(sub(b,a)),on=unit(off),a2=add(a,off),b2=add(b,off),ly=o.ly||'COTAS',st='dim';
-  dl.push(L_(add(a,mul(on,.05)),add(a2,mul(on,.08)),st,ly),L_(add(b,mul(on,.05)),add(b2,mul(on,.08)),st,ly),L_(a2,b2,st,ly));
+  if(len(sub(b,a))<.005)return;
+  const u=unit(sub(b,a)),z=len(off)<1e-6,on=z?perp(u):unit(off),a2=add(a,off),b2=add(b,off),ly=o.ly||'COTAS',st=o.st||'dim';
+  if(dl._dk){const K=p=>Math.round(p[0]*50)+','+Math.round(p[1]*50),k=[K(a2),K(b2)].sort().join('|');if(dl._dk.has(k))return;dl._dk.add(k)}
+  const ea=o.ea||a,eb=o.eb||b,ext=(p,q)=>{const v=sub(q,p),L=len(v);if(L<.06)return;const w=mul(v,1/L);dl.push(L_(add(p,mul(w,.05)),add(q,mul(w,.08)),st,ly))};
+  ext(ea,a2);ext(eb,b2);dl.push(L_(a2,b2,st,ly));
   const tv=mul(unit(add(u,perp(u))),.07);
   dl.push(L_(sub(a2,tv),add(a2,tv),st,ly),L_(sub(b2,tv),add(b2,tv),st,ly));
   let ang=Math.atan2(u[1],u[0]);if(ang>Math.PI/2+1e-6||ang<=-Math.PI/2+1e-6)ang+=Math.PI;
-  txt(dl,mul(add(a2,b2),.5),t,o.mm||2.1,{ang,st:'dim',ly,dy:.7,font:'num'});
+  txt(dl,mul(add(a2,b2),.5),t,o.mm||2.1,{ang,st,ly,dy:.7,font:'num',fit:len(sub(b2,a2)),halo:1});
 }
+/* ---- cotas: qué grupos se generan solos (se guardan en el iPad) ---- */
+const DIMDEF={muros:1,vanos:1,gen:1,el:0,esc:1,lin:0};
+view.dimSet=(()=>{let o={};try{o=JSON.parse(lsGet('lev.dimSet')||'{}')||{}}catch(e){}return Object.assign({},DIMDEF,o)})();
+const DIMN=[['muros','Muros'],['vanos','Vanos'],['gen','Generales'],['el','Columnas'],['esc','Escaleras'],['lin','Líneas']];
+/* cadena de cotas a lo largo de una línea: puntos u (en metros) desde el origen p0 en dirección d */
+function chainDL(dl,p0,d,us,off,o={}){const v=[...new Set(us.map(x=>Math.round(x*1000)/1000))].sort((a,b)=>a-b),P2=u=>add(p0,mul(d,u));
+  for(let i=0;i<v.length-1;i++)if(v[i+1]-v[i]>.01)dimDL(dl,P2(v[i]),P2(v[i+1]),off,f2(v[i+1]-v[i]),o)}
+/* cotas de cada lado de un polígono o polilínea, por fuera */
+function polyDims(dl,pts,closed,gap,o={}){const n=pts.length;if(n<2)return;let c=[0,0];pts.forEach(p=>c=add(c,p));c=mul(c,1/n);const m=closed?n:n-1;
+  for(let i=0;i<m;i++){const a=pts[i],b=pts[(i+1)%n],L=len(sub(b,a));if(L<.05)continue;const u=unit(sub(b,a));let nn=[u[1],-u[0]];if(closed){const mid=mul(add(a,b),.5);if((mid[0]-c[0])*nn[0]+(mid[1]-c[1])*nn[1]<0)nn=mul(nn,-1)}dimDL(dl,a,b,mul(nn,gap),f2(L),o)}}
+/* ¿hay otro cuarto pegado por la cara exterior de este muro? */
+function nbOut(s,sg){const m=toW(s,add(mul(add(sg.a,sg.b),.5),mul(sg.n,sg.t+.35)));
+  for(const z of P.spaces){if(z===s||z.piso!==s.piso)continue;const g=geom(z);if(g.closed&&inPoly(toL(z,m),g.P))return true}
+  return(P.zones||[]).some(z=>(z.piso||1)===s.piso&&inPoly(m,zoneGeom(z).pts))}
+/* cotas generales del piso: contorno exterior de todos los muros, abajo y a la izquierda */
+const GDC=new Map();
+function genDimsGeo(piso){const PC=window.polygonClipping;if(!PC)return null;const key=floorSig(piso)+P.spaces.filter(s=>s.piso===piso).map(s=>s.side||'').join('');if(GDC.has(key))return GDC.get(key);if(GDC.size>40)GDC.clear();
+  const Q=[];P.spaces.filter(s=>s.piso===piso).forEach(s=>geom(s).segs.forEach(sg=>Q.push([sg.a,sg.b,sg.ob,sg.oa].map(p=>toW(s,p)))));cornerFills(piso).forEach(c=>Q.push(c.pts));
+  let res=null;if(Q.length){try{const u=PC.union(...Q.map(q=>[[...q,q[0]]]));const E=[],V=[];let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    u.forEach(poly=>{const r=poly[0].slice(0,-1);r.forEach((p,i)=>{V.push(p);E.push([p,r[(i+1)%r.length]]);x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1])})});
+    const vis=(v,ax)=>{const o=1-ax;for(const [p,q] of E){if(len(sub(p,v))<1e-6||len(sub(q,v))<1e-6)continue;const lo=Math.min(p[ax],q[ax]),hi=Math.max(p[ax],q[ax]);if(!(lo<v[ax]-1e-6&&hi>v[ax]+1e-6))continue;const t=(v[ax]-p[ax])/(q[ax]-p[ax]),w=p[o]+t*(q[o]-p[o]);if(w<v[o]-1e-6)return false}return true};
+    res={x0,y0,x1,y1,xs:V.filter(v=>vis(v,0)).map(v=>v[0]),ys:V.filter(v=>vis(v,1)).map(v=>v[1])}}catch(e){res=null}}
+  GDC.set(key,res);return res}
+const mergeV=(a,t)=>{const v=[...a].sort((x,y)=>x-y),o=[];v.forEach(x=>{if(!o.length||x-o[o.length-1]>t)o.push(x)});return o};
+function genDimsDL(dl,piso){const g=genDimsGeo(piso);if(!g||g.x1-g.x0<.3&&g.y1-g.y0<.3)return;const o={mm:2.2,ly:'COTAS'};
+  if(g.x1-g.x0>=.3){const xs=mergeV(g.xs.concat([g.x0,g.x1]),.015),yb=g.y0;if(xs.length>2)chainDL(dl,[0,yb],[1,0],xs,[0,-1.2],o);dimDL(dl,[g.x0,yb],[g.x1,yb],[0,xs.length>2?-1.8:-1.2],f2(g.x1-g.x0),{mm:2.5,ly:'COTAS'})}
+  if(g.y1-g.y0>=.3){const ys=mergeV(g.ys.concat([g.y0,g.y1]),.015),xb=g.x0;if(ys.length>2)chainDL(dl,[xb,0],[0,1],ys,[-1.2,0],o);dimDL(dl,[xb,g.y0],[xb,g.y1],[ys.length>2?-1.8:-1.2,0],f2(g.y1-g.y0),{mm:2.5,ly:'COTAS'})}}
+/* distancia libre desde un punto hasta la cara del muro más cercano en una dirección */
+function rayWall(p,d,piso,maxD){let best=maxD||12;P.spaces.filter(s=>s.piso===piso).forEach(s=>geom(s).segs.forEach(sg=>{const q=[sg.a,sg.b,sg.ob,sg.oa].map(v=>toW(s,v));for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4],e=sub(b,a),den=d[0]*e[1]-d[1]*e[0];if(Math.abs(den)<1e-9)continue;const w=sub(a,p),t=(w[0]*e[1]-w[1]*e[0])/den,u=(w[0]*d[1]-w[1]*d[0])/den;if(t>1e-4&&u>=-1e-6&&u<=1+1e-6&&t<best)best=t}}));return best<(maxD||12)?best:null}
+function elDimsDL(dl,e,withDist){const c=CAT[e.type]||{};if(c.marker)return;const L=(x,y)=>elLocal(e,x,y),hw=e.w/2,hd=e.d/2,r=rad(e.rot||0),X=[Math.cos(r),Math.sin(r)],Y=[-Math.sin(r),Math.cos(r)],o={mm:1.8};
+  if(!withDist){if(c.circ)dimDL(dl,L(-hw,0),L(hw,0),mul(Y,-(hd+.22)),'Ø '+f2(e.w),o);else{dimDL(dl,L(-hw,-hd),L(hw,-hd),mul(Y,-.22),f2(e.w),o);dimDL(dl,L(hw,-hd),L(hw,hd),mul(X,.22),f2(e.d),o)}return}[[X,hw,0],[mul(X,-1),-hw,0],[Y,0,hd],[mul(Y,-1),0,-hd]].forEach(([d,x,y])=>{const p=L(x,y),t=rayWall(p,d,e.piso||1,10);if(t!=null&&t>.01)dimDL(dl,p,add(p,mul(d,t)),[0,0],f2(t),{mm:1.9,st:'live'})})}
+function stairDimsDL(dl,st){const G=stairGeo(st),ra=rad(st.rot??90),Y=[Math.cos(ra),Math.sin(ra)],X=[Math.sin(ra),-Math.cos(ra)];let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  G.T.concat(G.LD).forEach(t=>t.poly.forEach(p=>{const v=sub(p,[st.x,st.y]),lx=v[0]*X[0]+v[1]*X[1],ly=v[0]*Y[0]+v[1]*Y[1];x0=Math.min(x0,lx);x1=Math.max(x1,lx);y0=Math.min(y0,ly);y1=Math.max(y1,ly)}));
+  if(x0>x1)return;const W=(x,y)=>[st.x+X[0]*x+Y[0]*y,st.y+X[1]*x+Y[1]*y],o={mm:1.9,ly:'ESCALERAS'};dimDL(dl,W(x0,y0),W(x1,y0),mul(Y,-.35),f2(x1-x0),o);dimDL(dl,W(x1,y0),W(x1,y1),mul(X,.35),f2(y1-y0),o)}
+/* ---- cotas manuales (herramienta Medir) ---- */
+const curDim=()=>(P.dims||[]).find(d=>d.id===sel.did);
+function mDimPts(d){const a=d.a,b=d.b,m=d.m||'al';let A,B,N;
+  if(m==='h'){A=a;B=[b[0],a[1]];N=[0,1]}else if(m==='v'){A=a;B=[a[0],b[1]];N=[1,0]}else{A=a;B=b;const u=unit(sub(b,a));N=perp(u)}
+  return{A,B,N,off:d.off||0,L:len(sub(B,A))}}
+function mDimDL(dl,d,isSel){const g=mDimPts(d);if(g.L<.005)return;dimDL(dl,g.A,g.B,mul(g.N,g.off),d.txt||f2(g.L),{mm:2.3,ly:'COTAS',eb:d.b,st:isSel?'sel':'mdim'})}
+function mDimLine(d){const g=mDimPts(d),o=mul(g.N,g.off);return[add(g.A,o),add(g.B,o)]}
+function hitMDim(p){const tol=12/view.scale,ds=(P.dims||[]).filter(d=>(d.piso||1)===view.piso);for(let i=ds.length-1;i>=0;i--){const [a,b]=mDimLine(ds[i]),v=sub(b,a),L2=v[0]*v[0]+v[1]*v[1]||1e-9,t=clamp(((p[0]-a[0])*v[0]+(p[1]-a[1])*v[1])/L2,0,1);if(len(sub(p,add(a,mul(v,t))))<tol)return{t:'dim',did:ds[i].id}}return null}
+/* puntos a los que se pega la medida: esquinas de muros (las tres caras), bordes de vanos, elementos, líneas y escaleras */
+function dimSnapPts(){const out=[];floorVerts(null,true).forEach(v=>out.push(v));try{cornerGroups().forEach(c=>{out.push(c.int,c.ext,c.eje)})}catch(e){}
+  P.spaces.filter(s=>s.piso===view.piso).forEach(s=>geom(s).segs.forEach(sg=>{out.push(toW(s,sg.b),toW(s,sg.ob));sg.w.openings.forEach(o=>[o.off,o.off+o.w].forEach(u=>{const uu=clamp(u,0,sg.L),A=add(sg.a,mul(sg.d,uu));out.push(toW(s,A),toW(s,add(A,mul(sg.n,sg.t))))}))}));
+  P.elements.filter(e=>(e.piso||1)===view.piso).forEach(e=>{out.push([e.x,e.y]);if(!(CAT[e.type]||{}).marker)elCorners(e).forEach(q=>out.push(q))});
+  (P.lines||[]).filter(l=>(l.piso||1)===view.piso).forEach(l=>l.pts.forEach(q=>out.push(q)));
+  (P.stairs||[]).filter(s=>(s.piso||1)===view.piso).forEach(st=>{const G=stairGeo(st);G.T.concat(G.LD).forEach(t=>t.poly.forEach(q=>out.push(q)))});
+  (P.dims||[]).filter(d=>(d.piso||1)===view.piso).forEach(d=>out.push(d.a,d.b));
+  return out}
+function dimFaces(){const F=[];P.spaces.filter(s=>s.piso===view.piso).forEach(s=>geom(s).segs.forEach(sg=>{F.push([toW(s,sg.a),toW(s,sg.b)],[toW(s,sg.oa),toW(s,sg.ob)])}));return F}
+function snapDim(q,pts,faces,A){const tol=16/view.scale;let best=null,bd=tol;pts.forEach(v=>{const d=len(sub(v,q));if(d<bd){bd=d;best=v}});if(best)return{p:best.slice(),k:'pt'};
+  /* si A ya está puesto, mide perpendicular a la cara del muro */
+  let bf=null,bfd=12/view.scale;faces.forEach(([a,b])=>{const v=sub(b,a),L2=v[0]*v[0]+v[1]*v[1];if(L2<1e-8)return;let t=((q[0]-a[0])*v[0]+(q[1]-a[1])*v[1])/L2;if(A){const tA=((A[0]-a[0])*v[0]+(A[1]-a[1])*v[1])/L2;if(tA>=0&&tA<=1&&Math.abs(tA-t)*Math.sqrt(L2)<36/view.scale)t=tA}t=clamp(t,0,1);const pr=add(a,mul(v,t)),d=len(sub(pr,q));if(d<bfd){bfd=d;bf=pr}});
+  if(bf)return{p:bf,k:'cara'};return{p:A?rdrag(A,{p:q,v:false}):[r2(q[0]),r2(q[1])],k:''}}
+
 function arcDL(dl,c,r,v1,v2,st,ly){let a1=Math.atan2(v1[1],v1[0]),a2=Math.atan2(v2[1],v2[0]);let dd=a2-a1;while(dd<=-Math.PI)dd+=2*Math.PI;while(dd>Math.PI)dd-=2*Math.PI;if(dd<0){const t=a1;a1=a2;a2=t}if(a2<a1)a2+=2*Math.PI;dl.push({k:'arc',c,r,a0:a1,a1:a2,st,ly})}
 
 function planDL(piso,opt={}){
   if(opt.roofPlan){const dl=[];wallsOutlineDL(dl,piso);roofsDL(dl,piso,opt);return dl}
   const dl=[],codes=opCodes(),pn=patNums(),interactive=!opt.print;
-  const S=P.spaces.filter(s=>s.piso===piso);if(interactive){view.dimHits=[];lowerGhostDL(dl,piso)}
+  const S=P.spaces.filter(s=>s.piso===piso);if(interactive){view.dimHits=[];lowerGhostDL(dl,piso)}dl._dk=new Set();
+  const dk=k=>opt.print?!!view.dimSet[k]:(view.dimOps&&!!view.dimSet[k]);
   S.forEach(s=>{const g=geom(s),T=p=>toW(s,p),R=v=>rotV(s,v);
     const sSel=interactive&&(sel.sid===s.id);
     if(g.closed)dl.push({k:'poly',pts:g.P.map(T),closed:1,fill:sSel&&sel.t==='space'?'selfill':'room',st:null,ly:'ESPACIOS'});
@@ -618,12 +678,13 @@ function planDL(piso,opt={}){
       const rn=sg.w.reno||'exist',rst=rn==='nuevo'?{fc:'#bfe3c8',st:'nuevo',ly:'MUROS-NUEVOS'}:rn==='demoler'?{fc:'#f7dcd8',st:'demo',ly:'MUROS-DEMOLER'}:{st:'ink',ly:'MUROS'};
       pieces(sg).forEach(q=>dl.push({k:'poly',pts:q.map(T),closed:1,fill:'wall',fc:rst.fc,st:wSel?'sel':rst.st,ly:rst.ly}));
       sg.w.openings.forEach(o=>opPlan(dl,sg,o,T,codes[o.id],wSel));
-      if(sg.refL>.05){const dof=g.ref==='ext'?mul(sg.n,.42):mul(sg.n,-(sg.refOff+.42));dimDL(dl,T(sg.ra),T(sg.rb),R(dof),f2(sg.refL));if(interactive&&!(g.closed&&sg.i===s.walls.length-1))view.dimHits.push({p:T(add(mul(add(sg.ra,sg.rb),.5),dof)),sid:s.id,wid:sg.w.id,v:sg.w.len})}
-      if(view.dimOps||opt.print){const od=R(mul(sg.n,sg.t-sg.refOff+.32)),RP=u=>T(add(sg.ra,mul(sg.d,u)));sg.w.openings.forEach(o=>{const u0=clamp(o.off,0,sg.L)-sg.s0,u1=clamp(o.off+o.w,0,sg.L)-sg.s0;if(u1-u0<.02)return;
-        dimDL(dl,RP(u0),RP(u1),od,f2(u1-u0),{mm:1.8});
-        if(u0>.02)dimDL(dl,RP(0),RP(u0),od,f2(u0),{mm:1.8});
-        if(sg.refL-u1>.02)dimDL(dl,RP(u1),RP(sg.refL),od,f2(sg.refL-u1),{mm:1.8});
-      })}
+      /* cotas en orden, como en ArchiCAD: 1.ª línea = cadena de vanos y machones; 2.ª = largo del muro (por la cara medida) */
+      if(sg.refL>.05){const us=[0,sg.refL];if(dk('vanos'))sg.w.openings.forEach(o=>{const u0=clamp(o.off,0,sg.L)-sg.s0,u1=clamp(o.off+o.w,0,sg.L)-sg.s0;if(u1-u0>=.02)us.push(clamp(u0,0,sg.refL),clamp(u1,0,sg.refL))});
+        const hasOps=us.length>2,nb=hasOps&&nbOut(s,sg),ext=g.ref==='ext'&&!nb;
+        /* si al otro lado del muro hay otro cuarto, la cadena de vanos va por dentro para no montarse con las cotas del vecino */
+        const dof=ext?mul(sg.n,hasOps?.8:.4):mul(sg.n,-(sg.refOff+(nb?.8:.4)));
+        if(hasOps)chainDL(dl,T(sg.ra),R(sg.d),us,R(nb?mul(sg.n,-(sg.refOff+.4)):mul(sg.n,sg.t-sg.refOff+.4)),{mm:1.9});
+        if(dk('muros')){const dofH=nb?mul(sg.n,-(sg.refOff+.4)):dof;if(!nb)dimDL(dl,T(sg.ra),T(sg.rb),R(dof),f2(sg.refL),{mm:2.2});if(interactive&&!(g.closed&&sg.i===s.walls.length-1))view.dimHits.push({p:T(add(mul(add(sg.ra,sg.rb),.5),dofH)),sid:s.id,wid:sg.w.id,v:sg.w.len})}}
     });
     const c=T(g.cen);
     if(g.closed&&!subdivided(s)){txt(dl,c,s.name||'Espacio',3.1,{bold:1,dy:2.6});
@@ -635,7 +696,15 @@ function planDL(piso,opt={}){
   zonesDL(dl,piso,interactive,'lbl');
   P.elements.filter(e=>(e.piso||1)===piso).forEach(e=>elPlan(dl,e,interactive&&sel.t==='el'&&sel.eid===e.id,pn[e.id]));
   roofsDL(dl,piso,opt);slabsDL(dl,piso,opt);stairsDL(dl,piso,opt);sectionsPlanDL(dl,opt);linesDL(dl,piso,interactive);
-  return dl;
+  /* cotas de los demás elementos */
+  if(dk('gen'))genDimsDL(dl,piso);
+  P.elements.filter(e=>(e.piso||1)===piso).forEach(e=>{const c=CAT[e.type]||{},isS=interactive&&sel.t==='el'&&sel.eid===e.id;if(isS)elDimsDL(dl,e,true);else if(dk('el')&&c.fill==='col')elDimsDL(dl,e,false)});
+  (P.stairs||[]).filter(s=>(s.piso||1)===piso).forEach(st=>{if(dk('esc')||interactive&&sel.t==='stair'&&sel.eid2===st.id)stairDimsDL(dl,st)});
+  (P.lines||[]).filter(l=>(l.piso||1)===piso).forEach(l=>{if(dk('lin')||interactive&&sel.t==='line'&&sel.lnid===l.id)polyDims(dl,l.pts,l.closed,.25,{mm:1.8,ly:'COTAS'})});
+  if(interactive&&sel.t==='slab'){const sl=curSlab();if(sl&&(sl.piso||1)===piso)polyDims(dl,sl.pts,true,.35,{mm:1.9})}
+  (P.dims||[]).filter(d=>(d.piso||1)===piso).forEach(d=>mDimDL(dl,d,interactive&&sel.t==='dim'&&sel.did===d.id));
+  /* las cotas se dibujan encima de todo para que siempre se lean */
+  const top=[],rest=[];dl.forEach(it=>(it.ly==='COTAS'||it.st==='live'?top:rest).push(it));return rest.concat(top);
 }
 function opPlan(dl,sg,o,T,code,wSel){
   const s0=clamp(o.off,0,sg.L),s1=clamp(o.off+o.w,0,sg.L);if(s1-s0<.01)return;
@@ -702,7 +771,7 @@ function bboxDL(dl){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const ext=p=>{x0=Math.min(
 const cv=$('#cv'),ctx=cv.getContext('2d');let COL={},PXMM=3.3,curDL=[],curBlocks=[];
 function readCols(){const cs=getComputedStyle(document.documentElement);['paper','panel','ink','ink2','line','grid','grid2','poche','room','el','elev','dim','accent','accentwash','danger','roof','ok','roofF','slabF'].forEach(k=>COL[k]=cs.getPropertyValue('--'+k).trim());
   COL.font=cs.getPropertyValue('--f-ui').trim();COL.num=cs.getPropertyValue('--f-num').trim()}
-const STY={nuevo:[1.6,'ok'],demo:[1.6,'danger',[6,4]],lin:[1.8,'ink'],ink:[1.3,'ink'],thin:[.8,'ink2'],dim:[.8,'dim'],sel:[2.2,'accent'],dash:[.8,'ink2',[5,4]],roof:[1,'roof',[8,5]],ghost:[2,'accent',[6,5]],pat:[1.6,'danger'],ink2:[1,'ink2'],slab:[1,'ink2',[10,3,2,3]],ghost2:[.8,'line',[4,3]],secl:[2.6,'ink'],secd:[1.2,'ink',[14,4,2,4]],cutl:[2.8,'ink'],roofl:[.8,'roof']};
+const STY={mdim:[1,'accent'],live:[1.1,'ok',[4,3]],nuevo:[1.6,'ok'],demo:[1.6,'danger',[6,4]],lin:[1.8,'ink'],ink:[1.3,'ink'],thin:[.8,'ink2'],dim:[.8,'dim'],sel:[2.2,'accent'],dash:[.8,'ink2',[5,4]],roof:[1,'roof',[8,5]],ghost:[2,'accent',[6,5]],pat:[1.6,'danger'],ink2:[1,'ink2'],slab:[1,'ink2',[10,3,2,3]],ghost2:[.8,'line',[4,3]],secl:[2.6,'ink'],secd:[1.2,'ink',[14,4,2,4]],cutl:[2.8,'ink'],roofl:[.8,'roof']};
 const FILL={cut:'poche',roofF:'roofF',slabF:'slabF',wall:'poche',room:'room',selfill:'accentwash',el:'el',col:'ink',elev:'elev',bg:'paper',patfill:'paper'};
 function sizeCanvas(c){const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;if(c.width!==Math.round(r.width*dpr)||c.height!==Math.round(r.height*dpr)){c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr)}return{w:r.width,h:r.height,dpr}}
 function W2S(x,y,W,H){return[(x-view.cx)*view.scale+W/2,H/2-(y-view.cy)*view.scale]}
@@ -722,7 +791,9 @@ function renderDL(c,dl,tf,k){
   c.lineJoin='round';c.lineCap='round';
   for(const it of dl){
     const s=STY[it.st]||STY.ink;
-    if(it.k==='text'){if(!it.s)continue;const px=Math.max(9,it.mm*PXMM);const [sx,sy]=tf(it.p[0],it.p[1]);c.save();c.translate(sx,sy);c.rotate(-(it.ang||0));c.font=(it.bold?'600 ':'')+px+'px '+(it.font==='num'?COL.num:COL.font);c.textAlign=it.al==='l'?'left':'center';c.textBaseline='alphabetic';c.fillStyle=COL[(STY[it.st]||STY.ink)[1]]||COL.ink;c.fillText(it.s,0,-(it.dy||0)*PXMM);c.restore();continue}
+    if(it.k==='text'){if(!it.s)continue;const px=Math.max(it.halo?11:9,it.mm*PXMM);const [sx,sy]=tf(it.p[0],it.p[1]);c.save();c.translate(sx,sy);c.rotate(-(it.ang||0));c.font=(it.bold?'600 ':'')+px+'px '+(it.font==='num'?COL.num:COL.font);c.textAlign=it.al==='l'?'left':'center';c.textBaseline='alphabetic';
+      let tx=0;if(it.fit!=null){const tw=c.measureText(it.s).width,sl=it.fit*k;if(sl<3){c.restore();continue}if(sl<tw+8)tx=sl/2+tw/2+5}
+      const ty=-(it.dy||0)*PXMM;if(it.halo){c.lineJoin='round';c.lineWidth=4;c.strokeStyle=COL.paper;c.strokeText(it.s,tx,ty)}c.fillStyle=COL[(STY[it.st]||STY.ink)[1]]||COL.ink;c.fillText(it.s,tx,ty);c.restore();continue}
     c.beginPath();
     if(it.k==='poly'){it.pts.forEach((p,i)=>{const [x,y]=tf(p[0],p[1]);i?c.lineTo(x,y):c.moveTo(x,y)});if(it.closed)c.closePath()}
     else if(it.k==='line'){const [x1,y1]=tf(it.a[0],it.a[1]),[x2,y2]=tf(it.b[0],it.b[1]);c.moveTo(x1,y1);c.lineTo(x2,y2)}
@@ -744,6 +815,7 @@ const curSpace=()=>P.spaces.find(s=>s.id===sel.sid);
 const curWall=()=>{const s=curSpace();return s&&s.walls.find(w=>w.id===sel.wid)};
 const curEl=()=>P.elements.find(e=>e.id===sel.eid);
 function hitPlan(p,noRoof){
+  {const hd=hitMDim(p);if(hd)return hd}
   {const hl=hitLine(p);if(hl)return hl}
   {const hc=hitSection(p);if(hc)return hc}
   if(view.tool==='losa'){const hs=hitSlab(p);if(hs)return hs}
@@ -1227,6 +1299,7 @@ const ICO={
   redo:'<path d="M15 7l4.5 4.5L15 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 11.5h-9a5 5 0 0 0 0 10h2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
   fit:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
   medida:'<path d="M3 16l13-13 5 5L8 21z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2" stroke="currentColor" stroke-width="1.6"/>',
+  cota:'<path d="M3 12h18M3 8v8M21 8v8M3 12l3-2.5M3 12l3 2.5M21 12l-3-2.5M21 12l-3 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   sel:'<path d="M6 3l12 9-5.5 1.2L15 19l-2.4 1.1-2.6-5.7L6 18z" fill="currentColor"/>',
   muro:'<path d="M4 7h16v10H4z" fill="none" stroke="currentColor" stroke-width="3"/>',
   puerta:'<path d="M5 20h14M5 20V6M5 6a14 14 0 0 1 14 14" fill="none" stroke="currentColor" stroke-width="1.8"/>',
@@ -1240,7 +1313,7 @@ const ICO={
   pat:'<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5v6M12 16v.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
   dedo:'<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11m0-2.5a1.5 1.5 0 0 1 3 0V12m0-1.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L4.3 15a1.6 1.6 0 0 1 2.5-2L9 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
 };
-const TOOLS=[['sel','Mover'],['borrar','Borrar'],['muro','Muro'],['esp','Espacio'],['lin','Líneas'],['puerta','Puerta'],['ventana','Ventana'],['vano','Vano'],['cub','Cubierta'],['losa','Losa'],['esc','Escalera'],['el','Elemento'],['pat','Daño'],['foto','Foto'],['corte','Corte']];
+const TOOLS=[['sel','Mover'],['borrar','Borrar'],['muro','Muro'],['esp','Espacio'],['lin','Líneas'],['cota','Medir'],['puerta','Puerta'],['ventana','Ventana'],['vano','Vano'],['cub','Cubierta'],['losa','Losa'],['esc','Escalera'],['el','Elemento'],['pat','Daño'],['foto','Foto'],['corte','Corte']];
 function renderRail(){
   const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`;
   $('#rail').innerHTML=TOOLS.map(([k,n])=>`<button data-tool="${k}" aria-pressed="${view.tool===k}" title="${n}">${svg(k)}<span>${n}</span></button>`).join('')+
@@ -1262,7 +1335,7 @@ function setTool(t){
   $('#stairpal').hidden=t!=='esc';if(t==='esc')renderStairPal();$('#slabpal').hidden=t!=='losa';if(t==='losa')renderSlabPal();if(t!=='losa')sdraft=null;
   $('#oppal').hidden=!(t==='puerta'||t==='ventana');if(t==='puerta'||t==='ventana'){opPalMode='tool';renderOpPal(t)}
   view.tool=t;if(t==='cub'&&!view.roofs){view.roofs=true;$('#tRoof').classList.add('on');$('#tRoof').setAttribute('aria-pressed','true')}renderRail();$('#elpal').hidden=t!=='el';if(t==='el')renderPal();hideQ();
-  const tips={esp:'Toca dentro de un cuarto encerrado por muros: se vuelve espacio y le pones el nombre.',foto:'Toca el sitio del plano donde estás y toma la foto. Queda marcada con una cámara; tócala para dibujar las medidas encima.',borrar:'Toca lo que quieras borrar, o pasa el lápiz por encima de varios muros, puertas, ventanas y elementos para borrarlos de una vez. ↶ deshace.',muro:'Dibuja cada muro con el lápiz: toca el punto de inicio y arrastra. Se ajusta a 90° y a las esquinas. Termina en el punto inicial para cerrar.',puerta:'Toca un muro para poner la puerta y arrástrala a su sitio.',ventana:'Toca un muro para poner la ventana y arrástrala a su sitio.',vano:'Toca un muro para poner el vano y arrástralo a su sitio.',pat:'Toca donde está el daño. Luego puedes arrastrarlo.',losa:'Arrastra de esquina a esquina, o toca dentro de un espacio para crear su losa.',esc:'Arrastra desde el arranque hacia donde sube la escalera.',corte:'Dibuja la línea de corte con el lápiz. La flecha indica hacia dónde se mira.',cub:'Elige la forma de la cubierta y dibújala con el lápiz. Si tocas dentro de un espacio, se cubre con alero de 0.50 m.',el:'Elige el elemento y tócalo en el plano. Después lo arrastras con el lápiz.'};
+  const tips={cota:'Arrastra el lápiz de un punto a otro: se pega a las esquinas, a las caras de los muros y a los bordes de vanos. La cota queda guardada; arrástrala para alejarla.',esp:'Toca dentro de un cuarto encerrado por muros: se vuelve espacio y le pones el nombre.',foto:'Toca el sitio del plano donde estás y toma la foto. Queda marcada con una cámara; tócala para dibujar las medidas encima.',borrar:'Toca lo que quieras borrar, o pasa el lápiz por encima de varios muros, puertas, ventanas y elementos para borrarlos de una vez. ↶ deshace.',muro:'Dibuja cada muro con el lápiz: toca el punto de inicio y arrastra. Se ajusta a 90° y a las esquinas. Termina en el punto inicial para cerrar.',puerta:'Toca un muro para poner la puerta y arrástrala a su sitio.',ventana:'Toca un muro para poner la ventana y arrástrala a su sitio.',vano:'Toca un muro para poner el vano y arrástralo a su sitio.',pat:'Toca donde está el daño. Luego puedes arrastrarlo.',losa:'Arrastra de esquina a esquina, o toca dentro de un espacio para crear su losa.',esc:'Arrastra desde el arranque hacia donde sube la escalera.',corte:'Dibuja la línea de corte con el lápiz. La flecha indica hacia dónde se mira.',cub:'Elige la forma de la cubierta y dibújala con el lápiz. Si tocas dentro de un espacio, se cubre con alero de 0.50 m.',el:'Elige el elemento y tócalo en el plano. Después lo arrastras con el lápiz.'};
   if(tips[t])toast(tips[t]);
   renderChip();buildDL();draw2D();
 }
@@ -1341,7 +1414,7 @@ const frToW=(fr,p)=>{const r=rad(fr.rot),c=Math.cos(r),si=Math.sin(r);return[fr.
 
 /* ---- manijas de la selección ---- */
 function handles(){const H=[];
-  if(view.mode!=='planta'||view.tool!=='sel')return H;
+  if(view.mode!=='planta'||(view.tool!=='sel'&&!(view.tool==='cota'&&sel.t==='dim')))return H;
   if(sel.t==='el'){const e=curEl();if(!e)return H;const c=CAT[e.type]||{};if(c.marker)return H;
     H.push({k:'rot',p:elLocal(e,0,e.d/2+Math.max(.25,26/view.scale))});
     const o=16/view.scale;if(c.circ)H.push({k:'size',p:elLocal(e,e.w/2+o,0)});else H.push({k:'size',p:elLocal(e,e.w/2+o*.7,-e.d/2-o*.7)})}
@@ -1351,6 +1424,7 @@ function handles(){const H=[];
   if(sel.t==='roof'){const r=curRoof();if(!r)return H;return roofHandles(r)}
   if(sel.t==='slab'){const sl=curSlab();if(!sl)return H;return roofHandles(sl)}
   if(sel.t==='line'){const l=curLine();if(l)l.pts.forEach((p,i)=>H.push({k:'lv',i,p}));return H}
+  if(sel.t==='dim'){const d=curDim();if(d){const [a,b]=mDimLine(d);H.push({k:'dma',p:d.a},{k:'dmb',p:d.b},{k:'dmoff',p:mul(add(a,b),.5)})}return H}
   if(sel.t==='stair'){const st=curStair();if(!st)return H;const G=stairGeo(st),e=G.path[G.path.length-1],u=unit(sub(e,G.path[G.path.length-2]));H.push({k:'strot',p:add(e,mul(u,Math.max(.75,58/view.scale)))});if(st.tipo==='recta'){const lt=G.T[G.T.length-1].poly;H.push({k:'stlen',p:mul(add(lt[2],lt[3]),.5)})}return H}
   if(sel.t==='section'){const c=curSection();if(!c)return H;H.push({k:'sca',p:c.a},{k:'scb',p:c.b});return H}
   if(sel.t==='op'){const s=curSpace(),w=curWall(),o=curOp();if(!o)return H;const g=geom(s),sg=g.segs[s.walls.indexOf(w)],m=mul(sg.n,sg.t/2);
@@ -1373,6 +1447,9 @@ function dragApply(d,q){
   if(d.kind==='secmv'){const c=d.obj,sh=[r5(dl0[0]),r5(dl0[1])];c.a=add(d.a0,sh);c.b=add(d.b0,sh);live={p:q,t:'Mover corte'};return}
   if(d.kind==='newstair'){let B=rdrag(d.A,snapPt(q));const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.15)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.15)B=[B[0],d.A[1]];d.B=B;live={p:q,t:stairTxt(stairFromDrag(d))};return}
   if(d.kind==='newslab'||d.kind==='newsec'||d.kind==='newstair'){let B=rdrag(d.A,snapPt(q));if(d.kind!=='newslab'){const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.15)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.15)B=[B[0],d.A[1]]}d.B=B;live={p:q,t:d.kind==='newslab'?f2(Math.abs(B[0]-d.A[0]))+' × '+f2(Math.abs(B[1]-d.A[1])):f2(len(sub(B,d.A)))+' m'};return}
+  if(d.kind==='newdim'){const sn=snapDim(q,d.pts,d.faces,d.A);let B=sn.p;if(!sn.k&&(view.dimMode||'al')==='al'){const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.07)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.07)B=[B[0],d.A[1]]}d.B=B;d.bk=sn.k;const g=mDimPts({a:d.A,b:B,m:view.dimMode});live={p:q,t:f2(g.L)+' m'};return}
+  if(d.kind==='dma'||d.kind==='dmb'){const dm=d.obj,o=d.kind==='dma'?dm.b:dm.a,sn=snapDim(q,d.pts,d.faces,o);if(d.kind==='dma')dm.a=sn.p;else dm.b=sn.p;live={p:q,t:f2(mDimPts(dm).L)+' m'};return}
+  if(d.kind==='dmoff'){const dm=d.obj,g=mDimPts(dm),v=sub(q,g.A);dm.off=Math.round(((v[0]*g.N[0]+v[1]*g.N[1])-d.grab)*100)/100;live={p:q,t:f2(g.L)+' m'};return}
   if(d.kind==='newlin'){let B=rdrag(d.A,snapPt(q));const dd=sub(B,d.A);if(Math.abs(dd[0])<Math.abs(dd[1])*.08)B=[d.A[0],B[1]];else if(Math.abs(dd[1])<Math.abs(dd[0])*.08)B=[B[0],d.A[1]];d.B=B;live={p:q,t:f2(len(sub(B,d.A)))+' m'};return}
   if(d.kind==='lpt'){d.B=rdrag(ldraft&&ldraft.pts.length?ldraft.pts[ldraft.pts.length-1]:null,snapPt(q));return}
   if(d.kind==='linmv'){const l=d.obj,dd=[rl(q[0]-d.p0[0]),rl(q[1]-d.p0[1])];l.pts=d.pts0.map(p=>[Math.round((p[0]+dd[0])*1000)/1000,Math.round((p[1]+dd[1])*1000)/1000]);live={p:q,t:'Mover línea'};return}
@@ -1426,6 +1503,7 @@ function toolDown(p,pt){
       if(h.k==='opA'||h.k==='opB')return startDrag(h.k,p,{obj:curOp(),s:curSpace(),w:curWall()})
       if((sel.t==='roof'||sel.t==='slab')&&['rv','re','rrot','rsx','rsy','psx','psy'].includes(h.k))return roofDragStart(h,p,sel.t==='slab'?curSlab():null)
       if(h.k==='lv'){return startDrag('lv',p,{obj:curLine(),i:h.i})}
+      if(h.k==='dma'||h.k==='dmb'||h.k==='dmoff')return dimHandleDrag(h,p);
       if(h.k==='strot'){const st=curStair();return startDrag('strot',p,{obj:st})}
       if(h.k==='stlen'){const st=curStair();return startDrag('stlen',p,{obj:st,ch:st.h/Math.max(1,st.n)})}
       if(h.k==='sca'||h.k==='scb'){const c=curSection();return startDrag(h.k,p,{obj:c})}}
@@ -1436,6 +1514,8 @@ function toolDown(p,pt){
     return dragFor(hit,p);
   }
   if(t==='borrar')return eraseDown(p);
+  if(t==='cota'){const h=sel.t==='dim'&&hitHandle(p);if(h&&['dma','dmb','dmoff'].includes(h.k))return dimHandleDrag(h,p);const hd=hitMDim(p);if(hd){sel=hd;return dimHandleDrag({k:'dmoff'},p)}
+    const pts=dimSnapPts(),faces=dimFaces(),sn=snapDim(p,pts,faces,null);return{kind:'newdim',A:sn.p,ak:sn.k,pts,faces,p0:p,moved:false,snap:snapshot()}}
   if(t==='lin'){const sp=snapPt(p);if((view.linMode||'linea')==='linea')return{kind:'newlin',A:sp.p,p0:p,moved:false,snap:snapshot()};return{kind:'lpt',A:sp.p,p0:p,moved:false,snap:snapshot()}}
   if(t==='esp')return{kind:'tapesp',p0:p,moved:false,snap:snapshot()};
   if(t==='muro')return muroDown(p);
@@ -1447,7 +1527,10 @@ function toolDown(p,pt){
   if(t==='el'||t==='pat'){const hit=hitPlan(p);if(hit&&hit.t==='el')return dragFor(hit,p);return placeEl(p,t==='pat'?'patologia':view.elType)}
   return null;
 }
+function dimHandleDrag(h,p){const dm=curDim();if(!dm)return null;const x={obj:dm,pts:dimSnapPts().filter(v=>len(sub(v,dm.a))>1e-6&&len(sub(v,dm.b))>1e-6),faces:dimFaces()};
+  if(h.k==='dmoff'){const g=mDimPts(dm),v=sub(p,g.A);x.grab=(v[0]*g.N[0]+v[1]*g.N[1])-g.off}return startDrag(h.k,p,x)}
 function dragFor(hit,p){
+  if(hit.t==='dim'){sel=hit;return dimHandleDrag({k:'dmoff'},p)}
   if(hit.t==='el'){const e=P.elements.find(x=>x.id===hit.eid);sel=hit;return startDrag('el',p,{obj:e,o0:[e.x,e.y],sel:hit})}
   if(hit.t==='op'){const s=P.spaces.find(x=>x.id===hit.sid),w=s.walls.find(x=>x.id===hit.wid),o=w.openings.find(x=>x.id===hit.oid);const g=geom(s),sg=g.segs[s.walls.indexOf(w)],lp=toL(s,p),al=(lp[0]-sg.a[0])*sg.d[0]+(lp[1]-sg.a[1])*sg.d[1];sel=hit;return startDrag('op',p,{obj:o,s,w,grab:al-o.off,sel:hit})}
   if(hit.t==='wall'){const s=P.spaces.find(x=>x.id===hit.sid),i=s.walls.findIndex(w=>w.id===hit.wid),g=geom(s),sg=g.segs[i],n=(g.closed?g.P:g.V).length;sel=hit;
@@ -1519,7 +1602,7 @@ cv.addEventListener('pointerdown',e=>{if(drag&&drag.kind==='muro'&&e.pointerType
   if(ptrs.size>=2){const v=[...ptrs.values()];if(v.filter(q=>q.type==='touch').length>=2){if(drag)cancelDrag();nav=null;const a=[v[0].x,v[0].y],b=[v[1].x,v[1].y];pinch={d:len(sub(a,b)),scale:view.scale,c:mul(add(a,b),.5),cx:view.cx,cy:view.cy}}return}
   const p=S2W(e.clientX,e.clientY);
   if(view.pick&&view.mode==='planta'){nav={pid:e.pointerId,x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy,moved:false,t:Date.now(),type:e.pointerType};return}
-  if(isAct(e)){const dd=toolDown(p,e.pointerType);if(dd){drag=dd;drag.pid=e.pointerId;drag.sx=e.clientX;drag.sy=e.clientY;if(!['muro','tapsel','tapdim','tapfoto','tapphoto','tapesp'].includes(dd.kind)){renderChip();buildDL();draw2D()}return}}
+  if(isAct(e)){const dd=toolDown(p,e.pointerType);if(dd){drag=dd;drag.pid=e.pointerId;drag.sx=e.clientX;drag.sy=e.clientY;if(!['muro','tapsel','tapdim','tapfoto','tapphoto','tapesp'].includes(dd.kind)){renderChip();buildDL();draw2D()}if(dd.kind==='dmoff'||dd.kind==='dma'||dd.kind==='dmb')renderProps();return}}
   nav={pid:e.pointerId,x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy,moved:false,t:Date.now(),type:e.pointerType};
 });
 cv.addEventListener('pointermove',e=>{
@@ -1541,6 +1624,7 @@ function endPtr(e){if(lpEnd(e))return;const was=ptrs.get(e.pointerId);ptrs.delet
     if(d.kind==='tapsel'){renderAll();return}
     if(d.kind==='erase'){eraseUp(d);return}
     if(d.kind==='tapphoto'){if(d.moved){undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved();renderAll()}else openPhoto(d.id);return}
+    if(d.kind==='newdim'){live=null;if(d.moved&&d.B&&mDimPts({a:d.A,b:d.B,m:view.dimMode}).L>.02){const R3=p=>p.map(v=>Math.round(v*1000)/1000),dm={id:uid(),piso:view.piso,a:R3(d.A),b:R3(d.B),m:view.dimMode||'al',off:0};(P.dims||(P.dims=[])).push(dm);sel={t:'dim',did:dm.id};undoS.push(d.snap);if(undoS.length>60)undoS.shift();redoS=[];saved();toast('Cota de '+f2(mDimPts(dm).L)+' m. Arrástrala para alejarla del muro.')}else toast('Arrastra el lápiz desde un punto hasta el otro');renderAll();return}
     if(d.kind==='newlin'){live=null;if(d.moved&&d.B&&len(sub(d.B,d.A))>.05){const l={id:uid(),piso:view.piso,pts:[d.A,d.B],closed:false,color:view.linCol||LCOLS[0],nota:''};linesOf(P).push(l);sel={t:'line',lnid:l.id};undoS.push(d.snap);redoS=[];saved()}else toast('Arrastra el lápiz de un punto a otro');renderAll();return}
     if(d.kind==='lpt'){const pt=d.B||d.A;if(!ldraft)ldraft={pts:[]};const L=ldraft.pts,poly=view.linMode==='poligono',tol=16/view.scale;
       if(poly&&L.length>=3&&len(sub(pt,L[0]))<tol){finishLdraft();return}
@@ -1589,6 +1673,7 @@ function drawOverlay(tf){
   if(view.mode==='planta'){
     drawPhotoMarks(c,tf);
     if(ldraft&&view.tool==='lin'&&ldraft.pts.length){const pv=ldraft.pts.concat(drag&&drag.kind==='lpt'&&drag.B?[drag.B]:[]);c.strokeStyle=view.linCol||LCOLS[0];c.lineWidth=2;c.setLineDash([7,5]);c.beginPath();pv.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.stroke();c.setLineDash([]);ldraft.pts.forEach((q,i)=>dot(q,i?4:6,i?(view.linCol||LCOLS[0]):COL.panel,view.linCol||LCOLS[0]))}
+    if(drag&&drag.kind==='newdim'){const tl=[];if(drag.B)mDimDL(tl,{a:drag.A,b:drag.B,m:view.dimMode||'al',off:0},true);renderDL(c,tl,tf,view.scale);const mk=(q,k)=>{if(!k)return;const s2=tf(...q);c.strokeStyle=COL.accent;c.lineWidth=2;c.beginPath();if(k==='pt')c.rect(s2[0]-6,s2[1]-6,12,12);else{c.moveTo(s2[0]-7,s2[1]+7);c.lineTo(s2[0]+7,s2[1]-7)}c.stroke()};mk(drag.A,drag.ak);if(drag.B)mk(drag.B,drag.bk);dot(drag.A,4,COL.accent,COL.accent)}
     if(drag&&drag.kind==='newlin'&&drag.B){const a=tf(...drag.A),b=tf(...drag.B);c.strokeStyle=view.linCol||LCOLS[0];c.lineWidth=2;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke()}
     if(view.tool==='muro'&&wallFromMode()!=='auto'){const md=wallFromMode();c.strokeStyle=COL.accent;c.lineWidth=1.6;cornerGroups().forEach(g=>{if(g.own)return;const q=tf(...g[md]);c.beginPath();c.arc(q[0],q[1],4.5,0,Math.PI*2);c.fillStyle=COL.panel;c.fill();c.stroke()})}
     if(view.espPrev&&view.espPrev.length>=3){c.beginPath();view.espPrev.forEach((q,i)=>{const s2=tf(...q);i?c.lineTo(s2[0],s2[1]):c.moveTo(s2[0],s2[1])});c.closePath();c.fillStyle=COL.accentwash;c.fill();c.strokeStyle=COL.accent;c.lineWidth=3;c.stroke()}
@@ -1698,6 +1783,7 @@ function chipDo(c,b){b=b||{dataset:{},getBoundingClientRect:()=>$('#chip').getBo
   else if(sel.t==='stair'){const st=curStair();if(c==='stt')st.tipo=b.dataset.v;if(c==='stg')st.giro=st.giro==='izq'?'der':'izq';if(c==='rot90')st.rot=normA((st.rot||0)+90);if(c==='del'){P.stairs=P.stairs.filter(x=>x!==st);sel={t:'proj'};toast('Escalera eliminada. ↶ para deshacer')}}
   else if(sel.t==='section'){const cc=curSection();if(c==='secflip')cc.dir=-(cc.dir||1);if(c==='del'){P.sections=P.sections.filter(x=>x!==cc);sel={t:'proj'};toast('Corte eliminado. ↶ para deshacer')}}
   else if(sel.t==='line'&&c==='del'){P.lines=(P.lines||[]).filter(x=>x.id!==sel.lnid);sel={t:'proj'}}
+  else if(sel.t==='dim'&&c==='del'){P.dims=(P.dims||[]).filter(x=>x.id!==sel.did);sel={t:'proj'}}
   else if(sel.t==='zone'&&c==='del'){P.zones=P.zones.filter(x=>x.id!==sel.zid);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
   else if(sel.t==='space'&&c==='del'){const s=curSpace();P.spaces=P.spaces.filter(x=>x!==s);sel={t:'proj'};toast('Espacio eliminado. ↶ para deshacer')}
   saved();renderAll();
@@ -1728,7 +1814,7 @@ $('#qOk').onclick=applyQ;$('#qIn').addEventListener('keydown',e=>{if(e.key==='En
 /* ============ borrar, cuadro flotante de propiedades y menú rápido del lápiz ============ */
 /* ---- borrar ---- */
 function eraseKey(h){return h.t+':'+(h.lnid||h.oid||h.eid||h.wid||h.eid2||h.cid||h.lid||h.rid||h.zid||h.sid)}
-function eraseAt(d,p){const h=hitPlan(p,true);if(h&&['el','op','wall','stair','section','line'].includes(h.t)){const k=eraseKey(h);if(!d.hits.has(k))d.hits.set(k,h)}}
+function eraseAt(d,p){const h=hitPlan(p,true);if(h&&['el','op','wall','stair','section','line','dim'].includes(h.t)){const k=eraseKey(h);if(!d.hits.has(k))d.hits.set(k,h)}}
 function eraseDown(p){const d={kind:'erase',p0:p,last:p,hits:new Map(),path:[p],moved:false,snap:snapshot()};eraseAt(d,p);return d}
 function eraseMove(d,q){const a=d.last,L=len(sub(q,a))*view.scale,n=Math.max(1,Math.ceil(L/5));for(let i=1;i<=n;i++)eraseAt(d,add(a,mul(sub(q,a),i/n)));d.last=q;d.path.push(q)}
 function eraseUp(d){let hs=[...d.hits.values()];
@@ -1744,6 +1830,7 @@ function eraseOutline(h){
   if(h.t==='stair'){const st=(P.stairs||[]).find(x=>x.id===h.eid2);if(!st)return[];const G=stairGeo(st);return G.T.map(t=>t.poly).concat(G.LD.map(l=>l.poly))}
   if(h.t==='section'){const c=(P.sections||[]).find(x=>x.id===h.cid);return c?[[c.a,c.b]]:[]}
   if(h.t==='line'){const l=(P.lines||[]).find(x=>x.id===h.lnid);return l?[l.pts]:[]}
+  if(h.t==='dim'){const d=(P.dims||[]).find(x=>x.id===h.did);return d?[mDimLine(d)]:[]}
   return[]}
 function dropZoneWalls(ids){if(!P.zones)return;P.zones.forEach(z=>z.walls=(z.walls||[]).filter(id=>!ids.has(id)));P.zones=P.zones.filter(z=>z.walls.length>=2)}
 /* quitar muros sin mover los demás: el tramo se parte donde se quitó el muro (como en ArchiCAD) */
@@ -1766,13 +1853,14 @@ function deleteItems(hs){let n=0;const wb=new Map();
     else if(h.t==='stair'){P.stairs=(P.stairs||[]).filter(x=>x.id!==h.eid2);n++}
     else if(h.t==='section'){P.sections=(P.sections||[]).filter(x=>x.id!==h.cid);n++}
     else if(h.t==='line'){P.lines=(P.lines||[]).filter(x=>x.id!==h.lnid);n++}
+    else if(h.t==='dim'){P.dims=(P.dims||[]).filter(x=>x.id!==h.did);n++}
     else if(h.t==='slab'){P.slabs=(P.slabs||[]).filter(x=>x.id!==h.lid);n++}
     else if(h.t==='roof'){P.roofs=(P.roofs||[]).filter(x=>x.id!==h.rid);n++}
     else if(h.t==='zone'){P.zones=(P.zones||[]).filter(x=>x.id!==h.zid);n++}
     else if(h.t==='space'){const s=P.spaces.find(x=>x.id===h.sid);if(s){P.spaces=P.spaces.filter(x=>x!==s);dropZoneWalls(new Set(s.walls.map(w=>w.id)));n++}}}
   wb.forEach((ids,sid)=>{const s=P.spaces.find(x=>x.id===sid);if(s)removeWalls(s,ids)});
   return n}
-const PROPT=['wall','op','el','space','zone','slab','stair','roof','section','line'];
+const PROPT=['wall','op','el','space','zone','slab','stair','roof','section','line','dim'];
 function deleteSel(){if(PROPT.includes(sel.t)){chipDo('del');snack('Eliminado')}}
 
 /* ---- cuadro flotante de propiedades (se escribe con el lápiz) ---- */
@@ -1817,6 +1905,7 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
     else{f('Altura arranque','rf','hA',r.hA);f('Flecha (alto)','rf','rise',r.rise)}
     A.push(['del','Eliminar','dng'])}
   else if(sel.t==='line'&&curLine()){const l=curLine();t=l.closed?'Polígono':l.pts.length>2?'Polilínea':'Línea';f('Nota','ln','nota',l.nota||'',{full:1,text:1});var extra=`<div class="cap">Color</div>`+linColChips(l.color||LCOLS[0]);info='Solo de referencia: no es muro ni cuenta área.';A.push(['del','Eliminar','dng'])}
+  else if(sel.t==='dim'&&curDim()){const d=curDim(),g=mDimPts(d);t='Cota · '+f2(g.L)+' m';f('Texto (vacío = medida)','dm','txt',d.txt||'',{full:1,text:1});var extra=dimModeChips(d.m||'al','dmmode');info='Arrastra las puntas o la línea con el lápiz.';A.push(['del','Eliminar','dng'])}
   else if(sel.t==='section'&&curSection()){const c=curSection();t='Corte '+c.name+'-'+c.name;f('Profundidad','sec','depth',c.depth||15,{full:1});A.push(['secview','Ver corte'],['del','Eliminar','dng'])}
   else return null;
   return{t,F,A,info,extra:typeof extra==='string'?extra:''}}
@@ -1851,8 +1940,10 @@ function sideIcon(k){const ar='<path d="M22 31V6M22 6l-4.5 5M22 6l4.5 5" stroke=
   return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="12" y="5" width="10" height="26" fill="none" stroke="currentColor" stroke-dasharray="2 2"/><rect x="22" y="5" width="10" height="26" fill="none" stroke="currentColor" stroke-dasharray="2 2"/>${ar}</svg>`}
 /* hacia qué lado del trazo está el grueso del muro en un tramo */
 function effSide(s){if(s.side==='izq'||s.side==='der')return s.side;const g=geom(s),ref=s.ref||'int',right=ref==='ext'?!g.ccw:g.ccw;return right?'der':'izq'}
-const PALT={puerta:'oppal',ventana:'oppal',cub:'roofpal',esc:'stairpal',losa:'slabpal',el:'elpal',vano:null,pat:null,foto:null,corte:null,sel:null,borrar:null,esp:null,lin:null},PALS=['oppal','roofpal','stairpal','slabpal','elpal','wallpal'];
-const TOOLOBJ={puerta:'op',ventana:'op',vano:'op',cub:'roof',esc:'stair',losa:'slab',el:'el',pat:'el',corte:'section',foto:'-',borrar:'-',esp:'-',lin:'line'};
+const PALT={cota:null,puerta:'oppal',ventana:'oppal',cub:'roofpal',esc:'stairpal',losa:'slabpal',el:'elpal',vano:null,pat:null,foto:null,corte:null,sel:null,borrar:null,esp:null,lin:null},PALS=['oppal','roofpal','stairpal','slabpal','elpal','wallpal'];
+const TOOLOBJ={cota:'dim',puerta:'op',ventana:'op',vano:'op',cub:'roof',esc:'stair',losa:'slab',el:'el',pat:'el',corte:'section',foto:'-',borrar:'-',esp:'-',lin:'line'};
+const dimModeChips=(cur,pc)=>`<div class="chips">${[['al','Alineada'],['h','Horizontal'],['v','Vertical']].map(([k,n])=>`<button class="${cur===k?'on':''}" data-pc="${pc}" data-v="${k}">${n}</button>`).join('')}</div>`;
+const dimSetChips=()=>`<div class="cap">Cotas automáticas ${view.dimOps?'':'(apagadas)'}</div><div class="chips dset"><button class="${view.dimOps?'on':''} dsall" data-pc="dall">${view.dimOps?'Visibles · toca para ocultar':'Ocultas · toca para ver'}</button>${DIMN.map(([k,n])=>`<button class="${view.dimSet[k]?'on':''}" data-pc="dset" data-v="${k}">${n}</button>`).join('')}</div>`;
 const roundChips=()=>{const st=view.wallStep||.1;return`<div class="cap">Redondear lo que dibujas a</div><div class="chips">${[[.01,'1 cm'],[.05,'5 cm'],[.1,'10 cm']].map(([v,n])=>`<button class="${Math.abs(st-v)<1e-6?'on':''}" data-pc="ws" data-v="${v}">${n}</button>`).join('')}</div>`};
 function palRender(id){if(id==='oppal')renderOpPal(opPalMode==='change'&&curOp()?curOp().type:view.tool);else if(id==='roofpal')renderRoofPal();else if(id==='stairpal')renderStairPal();else if(id==='slabpal')renderSlabPal();else if(id==='elpal')renderPal()}
 function toolModel(t){if(!(t in PALT))return null;const id=PALT[t];let ch='';const F=[],f=(l,k,v,x)=>F.push(Object.assign({l,o:'tdef',k,v},x||{}));let extra='';
@@ -1868,10 +1959,11 @@ function toolModel(t){if(!(t in PALT))return null;const id=PALT[t];let ch='';con
   if(t==='pat'){ch=view.patType||'Humedad';extra=`<div class="chips">${PATS.map(p=>`<button class="${(view.patType||'Humedad')===p?'on':''}" data-pc="patt" data-v="${esc(p)}">${esc(p)}</button>`).join('')}</div>`}
   if(t==='foto')extra=`<div class="chips"><button data-pc="fcam">Tomar foto</button><button data-pc="ffront">Frontal · ancha</button><button data-pc="flib">Desde Fotos</button></div><div class="info">Para todo el cuarto: panorámica en la app Cámara (PANO) y luego Desde Fotos.</div>`;
   if(t==='lin')extra=`<div class="chips">${[['linea','Línea'],['poli','Polilínea'],['poligono','Polígono']].map(([k,n])=>`<button class="${(view.linMode||'linea')===k?'on':''}" data-pc="lmode" data-v="${k}">${n}</button>`).join('')}</div><div class="cap">Color</div>${linColChips(view.linCol||LCOLS[0])}${ldraft&&ldraft.pts.length?'<div class="chips"><button data-pc="lfin">Terminar</button><button data-pc="lcan">Cancelar</button></div>':''}`;
+  if(t==='cota')extra=`<div class="cap">Cómo mide</div>`+dimModeChips(view.dimMode||'al','dmode')+dimSetChips();
   if(t==='borrar')extra=`<div class="bigbtns"><button data-pc="undo" ${undoS.length?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true">${ICO.undo}</svg>Deshacer</button><button data-pc="redo" ${redoS.length?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true">${ICO.redo}</svg>Rehacer</button></div>`;
-  const hint={puerta:'Toca el muro donde va.',ventana:'Toca el muro donde va.',vano:'Toca el muro donde va el vano.',cub:'Dibuja la cubierta con el lápiz.',esc:'Arrastra desde el arranque hasta donde llega: la distancia que arrastras es el largo y los escalones se reparten solos.',losa:'Arrastra de esquina a esquina, o toca dentro de un espacio.',el:'Toca en el plano donde va.',pat:'Toca donde está el daño.',foto:'Toca en el plano el sitio donde tomas la foto, o usa los botones.',corte:'Dibuja la línea de corte con el lápiz.',sel:'Toca un elemento para moverlo o ver sus medidas.',borrar:'Toca lo que quieras borrar, o pasa el lápiz por encima de varios. Si te equivocas, Deshacer (o toca la pantalla con dos dedos).',esp:'Toca dentro de un cuarto encerrado por muros: se vuelve espacio, calcula el área y le pones el nombre. Si tocas un espacio que ya existe, le cambias el nombre.',lin:(view.linMode||'linea')==='linea'?'Arrastra de un punto a otro. Son solo de referencia: no son muros ni cuentan área.':(view.linMode==='poli'?'Toca cada punto; toca otra vez el último punto (o Terminar) para acabar.':'Toca cada esquina; toca la primera para cerrar el polígono.')}[t];
+  const hint={cota:'Arrastra de un punto a otro. Cuadrito = se pegó a una esquina; rayita = a la cara del muro.',puerta:'Toca el muro donde va.',ventana:'Toca el muro donde va.',vano:'Toca el muro donde va el vano.',cub:'Dibuja la cubierta con el lápiz.',esc:'Arrastra desde el arranque hasta donde llega: la distancia que arrastras es el largo y los escalones se reparten solos.',losa:'Arrastra de esquina a esquina, o toca dentro de un espacio.',el:'Toca en el plano donde va.',pat:'Toca donde está el daño.',foto:'Toca en el plano el sitio donde tomas la foto, o usa los botones.',corte:'Dibuja la línea de corte con el lápiz.',sel:'Toca un elemento para moverlo o ver sus medidas.',borrar:'Toca lo que quieras borrar, o pasa el lápiz por encima de varios. Si te equivocas, Deshacer (o toca la pantalla con dos dedos).',esp:'Toca dentro de un cuarto encerrado por muros: se vuelve espacio, calcula el área y le pones el nombre. Si tocas un espacio que ya existe, le cambias el nombre.',lin:(view.linMode||'linea')==='linea'?'Arrastra de un punto a otro. Son solo de referencia: no son muros ni cuentan área.':(view.linMode==='poli'?'Toca cada punto; toca otra vez el último punto (o Terminar) para acabar.':'Toca cada esquina; toca la primera para cerrar el polígono.')}[t];
   F.forEach(x=>x.ph=pfv(x));
-  return{t:{puerta:'Puerta',ventana:'Ventana',vano:'Vano',cub:'Cubierta',esc:'Escalera',losa:'Losa',el:'Elemento',pat:'Daño',foto:'Foto',corte:'Corte',sel:'Mover',borrar:'Borrar',esp:'Espacio',lin:'Líneas'}[t]+(ch?' · '+ch:''),F,A:[],info:hint,extra:extra+(t==='borrar'||t==='foto'||t==='esp'?'':roundChips()),pal:id,tool:1,key:'tool:'+t+':'+ch+':'+(t==='borrar'?undoS.length+'/'+redoS.length:'')+(t==='lin'?(view.linMode||'')+(view.linCol||'')+(ldraft?ldraft.pts.length:0):'')+':'+JSON.stringify(F.map(x=>x.v))+(view.wallStep||.1),wide:t==='el'||t==='puerta'||t==='ventana'}}
+  return{t:{cota:'Medir',puerta:'Puerta',ventana:'Ventana',vano:'Vano',cub:'Cubierta',esc:'Escalera',losa:'Losa',el:'Elemento',pat:'Daño',foto:'Foto',corte:'Corte',sel:'Mover',borrar:'Borrar',esp:'Espacio',lin:'Líneas'}[t]+(ch?' · '+ch:''),F,A:[],info:hint,extra:extra+(t==='borrar'||t==='foto'||t==='esp'?'':roundChips()),pal:id,tool:1,key:'tool:'+t+':'+ch+':'+(t==='borrar'?undoS.length+'/'+redoS.length:'')+(t==='lin'?(view.linMode||'')+(view.linCol||'')+(ldraft?ldraft.pts.length:0):'')+(t==='cota'?(view.dimMode||'')+JSON.stringify(view.dimSet)+view.dimOps:'')+':'+JSON.stringify(F.map(x=>x.v))+(view.wallStep||.1),wide:t==='el'||t==='puerta'||t==='ventana'}}
 const AICO={wflip:'flip',ren:'nombre',foto:'foto',del:'borrar',dup:'dup',rot90:'rot','tool:puerta':'puerta','tool:ventana':'ventana'};
 function renderProps(){const box=$('#props');if(!box)return;
   const ok=(view.mode==='planta'||view.mode==='alzados'||view.mode==='cortes'||view.mode==='3d')&&!view.pick;
@@ -1923,6 +2015,10 @@ window.addEventListener('resize',()=>placeProps());
     if(c==='newtipo'){const o=curOp();if(o){pushUndo();const code=nextTipo(P,o.type);P.opTypes[code]={type:o.type,sub:o.sub||'',w:o.w,h:o.h,sill:o.sill};o.tipo=code;(view.tipoCur||(view.tipoCur={}))[o.type]=code;saved();renderAll(true);toast('Ahora es el tipo '+code)}return}
     if(c==='lcol'){const v=b.dataset.v;view.linCol=v;lsSet('lev.linCol',v);const l=sel.t==='line'&&curLine();if(l){pushUndo();l.color=v;saved();renderAll(true)}else renderProps();return}
     if(c==='lmode'){view.linMode=b.dataset.v;ldraft=null;renderProps();draw2D();return}
+    if(c==='dmode'){view.dimMode=b.dataset.v;lsSet('lev.dimMode',view.dimMode);renderProps();return}
+    if(c==='dmmode'){const d=curDim();if(d){pushUndo();d.m=b.dataset.v;saved();renderAll(true)}return}
+    if(c==='dset'){const k=b.dataset.v;view.dimSet[k]=view.dimSet[k]?0:1;if(!view.dimOps)setDimOps(true);lsSet('lev.dimSet',JSON.stringify(view.dimSet));propsSig='';renderProps();buildDL();draw2D();return}
+    if(c==='dall'){setDimOps(!view.dimOps);propsSig='';renderProps();return}
     if(c==='lfin'){finishLdraft();return}
     if(c==='lcan'){ldraft=null;renderProps();draw2D();return}
     if(c==='ren'){renameSel();return}
@@ -2236,7 +2332,7 @@ function pushUndo(){undoS.push(JSON.stringify(P));if(undoS.length>60)undoS.shift
 function changed(){saved();renderAll()}
 function doUndo(){if(!undoS.length)return;redoS.push(JSON.stringify(P));P=JSON.parse(undoS.pop());fixSel();saved();renderAll()}
 function doRedo(){if(!redoS.length)return;undoS.push(JSON.stringify(P));P=JSON.parse(redoS.pop());fixSel();saved();renderAll()}
-function fixSel(){if(sel.t==='line'&&!curLine())sel={t:'proj'};if(sel.sid&&!curSpace())sel={t:'proj'};else if(sel.t==='wall'&&!curWall())sel={t:'space',sid:sel.sid};if(sel.t==='el'&&!curEl())sel={t:'proj'};if(sel.t==='op'&&!curOp())sel={t:'proj'};if(sel.t==='roof'&&!curRoof())sel={t:'proj'};if(sel.t==='zone'&&!curZone())sel={t:'proj'};if(sel.t==='slab'&&!curSlab())sel={t:'proj'};if(sel.t==='stair'&&!curStair())sel={t:'proj'};if(sel.t==='section'&&!curSection())sel={t:'proj'}}
+function fixSel(){if(sel.t==='line'&&!curLine())sel={t:'proj'};if(sel.t==='dim'&&!curDim())sel={t:'proj'};if(sel.sid&&!curSpace())sel={t:'proj'};else if(sel.t==='wall'&&!curWall())sel={t:'space',sid:sel.sid};if(sel.t==='el'&&!curEl())sel={t:'proj'};if(sel.t==='op'&&!curOp())sel={t:'proj'};if(sel.t==='roof'&&!curRoof())sel={t:'proj'};if(sel.t==='zone'&&!curZone())sel={t:'proj'};if(sel.t==='slab'&&!curSlab())sel={t:'proj'};if(sel.t==='stair'&&!curStair())sel={t:'proj'};if(sel.t==='section'&&!curSection())sel={t:'proj'}}
 
 /* ============ inspector ============ */
 const insp=$('#insp');
@@ -2252,6 +2348,8 @@ function renderInspector(){
   else if(sel.t==='slab'&&curSlab())insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Losa</span></div>`+inspSlab();
   else if(sel.t==='stair'&&curStair())insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Escalera</span></div>`+inspStair();
   else if(sel.t==='section'&&curSection()){const c=curSection();insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Corte</span></div><div><span class="eyebrow">Corte</span><h2>${esc(c.name)}-${esc(c.name)}</h2></div><div class="sec">${F('Nombre','sec','name',c.name,'text')}${F('Profundidad de vista (m)','sec','depth',c.depth||15)}<div class="row-btns"><button class="btn acc" data-a="secview">Ver corte</button></div></div><div class="sec">${delConfirm('delSection','Eliminar corte')}</div>`}
+  else if(sel.t==='line'&&curLine()){const l=curLine();insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Línea</span></div><div><span class="eyebrow">Línea de referencia</span><h2>${l.closed?'Polígono':l.pts.length>2?'Polilínea':'Línea'}</h2></div><p class="hint">Usa el cuadro flotante para cambiar el color, la nota o borrarla.</p>`}
+  else if(sel.t==='dim'&&curDim()){const d=curDim(),g=mDimPts(d);insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Cota</span></div><div><span class="eyebrow">Cota medida a mano</span><h2>${f2(g.L)} m</h2></div><p class="hint">Arrastra sus puntas para cambiar lo que mide, o la línea para alejarla. Usa el cuadro flotante para cambiarla o borrarla.</p>`}
   else if(sel.t==='roof'&&curRoof())insp.innerHTML=`<div class="crumbs"><button data-a="goProj">${esc(P.name)}</button> / <span>Cubierta</span></div>`+inspRoof();
   else{sel={t:'proj'};insp.innerHTML=inspProj()}
 }
@@ -2344,7 +2442,7 @@ function inspEl(){
   <p class="hint">Arrástralo con el lápiz. El círculo de arriba lo gira y el cuadrito de la esquina cambia su tamaño.</p>
   </div><div class="sec">${delConfirm('delEl','Eliminar elemento')}</div>`;
 }
-function resolveObj(o){if(o==='proj')return P;if(o==='ln')return curLine();if(o==='space')return curSpace();if(o==='rf')return curRoof();if(o==='sl')return curSlab();if(o==='st')return curStair();if(o==='sec')return curSection();if(o.startsWith('lvl:'))return(P.levels||[]).find(l=>l.n===+o.slice(4));if(o.startsWith('redge:')){const r=curRoof();return r&&r.edges[+o.slice(6)]}if(o==='zone')return curZone();if(o==='wall')return curWall();if(o==='el')return curEl();if(o.startsWith('op:')){const w=curWall();return w&&w.openings.find(x=>x.id===o.slice(3))}return null}
+function resolveObj(o){if(o==='proj')return P;if(o==='dm')return curDim();if(o==='ln')return curLine();if(o==='space')return curSpace();if(o==='rf')return curRoof();if(o==='sl')return curSlab();if(o==='st')return curStair();if(o==='sec')return curSection();if(o.startsWith('lvl:'))return(P.levels||[]).find(l=>l.n===+o.slice(4));if(o.startsWith('redge:')){const r=curRoof();return r&&r.edges[+o.slice(6)]}if(o==='zone')return curZone();if(o==='wall')return curWall();if(o==='el')return curEl();if(o.startsWith('op:')){const w=curWall();return w&&w.openings.find(x=>x.id===o.slice(3))}return null}
 insp.addEventListener('change',e=>fieldChange(e.target));
 function fieldChange(el){
   if(el.id==='tAuto'){trace.auto=el.value;return}if(el.id==='mUnit'){trace.unit=el.value;return}
@@ -2430,7 +2528,9 @@ function setMode(m){view.mode=m;document.querySelectorAll('.tabs button').forEac
 }
 document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.view==='alzados'&&!curSpace()&&P.spaces[0])sel={t:'space',sid:P.spaces[0].id},renderInspector();setMode(b.dataset.view)}));
 $('#tFit').onclick=()=>{if(view.mode==='3d')build3D(true);else fitView()};
-$('#tDims').onclick=()=>{view.dimOps=!view.dimOps;$('#tDims').classList.toggle('on',view.dimOps);$('#tDims').setAttribute('aria-pressed',view.dimOps);buildDL();draw2D()};
+function setDimOps(v){view.dimOps=v;lsSet('lev.dimOps',v?'1':'0');$('#tDims').classList.toggle('on',v);$('#tDims').setAttribute('aria-pressed',v);buildDL();draw2D()}
+$('#tDims').onclick=()=>{setDimOps(!view.dimOps);toast(view.dimOps?'Cotas automáticas visibles. Con Medir eliges cuáles.':'Cotas automáticas ocultas (las que mediste a mano siguen)')};
+view.dimMode=lsGet('lev.dimMode')||'al';if(lsGet('lev.dimOps')==='0')setTimeout(()=>setDimOps(false),0);
 $('#tRoof').onclick=()=>{view.roofs=!view.roofs;$('#tRoof').classList.toggle('on',view.roofs);$('#tRoof').setAttribute('aria-pressed',view.roofs);if(view.mode==='3d')build3D(false);else{buildDL();draw2D()}};
 $('#tPiso').onchange=e=>{if(e.target.value==='new'){pushUndo();view.piso=addLevel();saved();toast(levelOf(view.piso).name+' agregado. El piso de abajo se ve de fondo.')}else view.piso=+e.target.value;sel={t:'proj'};renderAll();fitView()};
 $('#tView').onchange=e=>{view.secView=e.target.value;fitView()};
