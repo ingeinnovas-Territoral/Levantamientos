@@ -353,7 +353,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=27;
+const APPVER=28;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -1482,7 +1482,12 @@ function muroDown(p){
   drawSid=null;const cp=cornerAt(p),sp=cp?{p:cp,v:true}:snapPt(p);return{kind:'muro',A:sp.p,s:null,p0:p,snap:snapshot(),moved:false};
 }
 function muroMove(d,q){d.prev=snapSeg(d.A,q);const sg=d.prev;let t=f2(sg.L)+' m';if(!sg.vtx&&!sg.ortho)t+=' · '+f2(sg.ang).replace('.00','')+'°';
-  if(d.s&&d.s.walls.length>=2&&len(sub(sg.B,toW(d.s,[0,0])))<.005)t+=' · cierra';live={p:q,t}}
+  if(d.s&&d.s.walls.length>=2&&len(sub(sg.B,toW(d.s,[0,0])))<.005)t+=' · cierra';t+=' · '+placeTxt();live={p:q,t}}
+function placeTxt(){const r=view.wallRef||'int',sd=view.wallSide||'auto';return r==='eje'?'◫ al centro':sd==='izq'?'◧ a la izquierda':sd==='der'?'◨ a la derecha':'automático'}
+/* como la tecla C de ArchiCAD: mientras arrastras el muro, cambia si la línea queda en una cara, al centro o en la otra cara */
+function cycleWallPlace(){if(view.wallRef!=='eje')view.wallBase=view.wallRef==='ext'?'ext':'int';const base=view.wallBase||'int',r=view.wallRef||'int',sd=view.wallSide||'auto';
+  const i=r==='eje'?1:sd==='izq'?2:0,S=[[base,'der'],[ 'eje','der'],[base,'izq']][(i+1)%3];view.wallRef=S[0];view.wallSide=S[1];lsSet('lev.wallRef',S[0]);lsSet('lev.wallSide',S[1]);
+  const cs=chainSpace();if(cs){cs.ref=S[0];cs.side=S[1]}if(live)live.t=live.t.replace(/ · [◧◨◫][^·]*$| · automático$/,'')+' · '+placeTxt();try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}draw2D();renderProps()}
 function muroUp(d){const sg=d.prev;live=null;if(!sg||sg.L<.05){return false}
   let s=d.s;
   if(!s){const ex=P.spaces.filter(z=>z.piso===view.piso);s=newSpace('',Math.round(d.A[0]*1000)/1000,Math.round(d.A[1]*1000)/1000,view.piso,ex[0]?ex[0].npt:0);s.ref=view.wallRef||'int';s.side=view.wallSide||'auto';P.spaces.push(s);drawSid=s.id}
@@ -1510,7 +1515,7 @@ function elevDown(p){const tol=12/view.scale;
 /* ---- eventos de puntero ---- */
 const ptrs=new Map();let drag=null,pinch=null,nav=null;
 const isAct=e=>e.pointerType!=='touch'||view.finger;
-cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,type:e.pointerType});hideQ();if(!$('#radial').hidden){closeRadial();return}lpStart(e);
+cv.addEventListener('pointerdown',e=>{if(drag&&drag.kind==='muro'&&e.pointerType==='touch'&&drag.pid!==e.pointerId&&!view.finger){e.preventDefault();cycleWallPlace();return}cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,type:e.pointerType});hideQ();if(!$('#radial').hidden){closeRadial();return}lpStart(e);
   if(ptrs.size>=2){const v=[...ptrs.values()];if(v.filter(q=>q.type==='touch').length>=2){if(drag)cancelDrag();nav=null;const a=[v[0].x,v[0].y],b=[v[1].x,v[1].y];pinch={d:len(sub(a,b)),scale:view.scale,c:mul(add(a,b),.5),cx:view.cx,cy:view.cy}}return}
   const p=S2W(e.clientX,e.clientY);
   if(view.pick&&view.mode==='planta'){nav={pid:e.pointerId,x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy,moved:false,t:Date.now(),type:e.pointerType};return}
@@ -1522,6 +1527,7 @@ cv.addEventListener('pointermove',e=>{
   const pt=ptrs.get(e.pointerId);pt.x=e.clientX;pt.y=e.clientY;if(lpMove(e))return;
   if(pinch&&ptrs.size>=2){const v=[...ptrs.values()],a=[v[0].x,v[0].y],b=[v[1].x,v[1].y],d=len(sub(a,b)),c=mul(add(a,b),.5),r=cv.getBoundingClientRect();view.scale=clamp(pinch.scale*d/pinch.d,4,800);
     const wx=(pinch.c[0]-r.left-r.width/2)/pinch.scale+pinch.cx,wy=pinch.cy-(pinch.c[1]-r.top-r.height/2)/pinch.scale;view.cx=wx-(c[0]-r.left-r.width/2)/view.scale;view.cy=wy+(c[1]-r.top-r.height/2)/view.scale;draw2D();return}
+  if(drag&&drag.pid===e.pointerId&&drag.kind==='muro'&&e.pointerType==='pen'&&e.pressure>0){const pr=e.pressure;if(pr<.55)drag.pArm=true;else if(pr>.92&&drag.pArm&&Date.now()-(drag.pT||0)>450){drag.pArm=false;drag.pT=Date.now();cycleWallPlace()}}
   if(drag&&drag.pid===e.pointerId){if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4)return;drag.moved=true;const q=S2W(e.clientX,e.clientY);
     if(drag.kind==='tapphoto')photoMarkMove(drag,q);else if(drag.kind==='tapfoto'||drag.kind==='tapesp'){}else if(drag.kind==='erase')eraseMove(drag,q);else if(drag.kind==='muro')muroMove(drag,q);else if(drag.kind!=='tapsel'&&drag.kind!=='tapdim')dragApply(drag,q);buildDL();draw2D();return}
   if(nav&&nav.pid===e.pointerId){const dx=e.clientX-nav.x,dy=e.clientY-nav.y;if(!nav.moved&&Math.hypot(dx,dy)<6)return;nav.moved=true;view.cx=nav.cx-dx/view.scale;view.cy=nav.cy+dy/view.scale;draw2D()}
@@ -1831,7 +1837,7 @@ function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep|
    +icoRow('Redond.',[[.01,'1'],[.05,'5'],[.1,'10']].map(([v,n])=>['ws',v,txtI(n+'cm'),'Redondear a '+n+' cm',Math.abs(st-v)<1e-6]));
   x+=`<button class="morebtn" data-pc="wmore">${view.wallMore?'Menos opciones ▴':'Más opciones ▾'}</button>`;
   const lw=sel.t==='wall'&&curWall()&&curSpace(),last=lw?`<div class="icsec">Este muro</div>`+sideCtl(lw)+`<div class="icsec">Próximos muros</div>`:'';
-  return{t:'Muro',F:[],A:[],info:'',extra:last+x,key:'muro'+r+t+st+sd+fr+wallMode()+rn+(view.wallMore?1:0)+(lw?sel.wid+lw.ref+lw.side:'')}}
+  return{t:'Muro',F:[],A:[],info:'Mientras arrastras el muro: toca la pantalla con un dedo (o aprieta fuerte el lápiz) para pasar la línea a una cara, al centro o a la otra cara.',extra:last+x,key:'muro'+r+t+st+sd+fr+wallMode()+rn+(view.wallMore?1:0)+(lw?sel.wid+lw.ref+lw.side:'')}}
 const RENO=[['exist','Existente','#8f989c'],['nuevo','Nuevo','#1f8a46'],['demoler','A demoler','#c0392b']];
 const renoChips=(cur,pc)=>`<div class="chips">${RENO.map(([k,n,c])=>`<button class="${cur===k?'on':''}" data-pc="${pc}" data-v="${k}"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c};margin-right:4px;vertical-align:-1px"></span>${n}</button>`).join('')}</div>`;
 function cornerIcon(k){const L='<path d="M7 5h30v8H15v17H7z" fill="currentColor" fill-opacity=".3" stroke="currentColor"/>',dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.6" fill="var(--accent)"/>`;
@@ -2200,7 +2206,7 @@ cv.addEventListener('pointerup',tapEnd);cv.addEventListener('pointercancel',tapE
 /* ---- panel de datos ---- */
 function setPanel(on){view.panel=on;$('main').classList.toggle('nopanel',!on);$('#bPanel').setAttribute('aria-pressed',on);$('#bPanel').classList.toggle('on',on);$('#bPanel').textContent=on?'Ocultar panel':'Panel';$('#ptab').textContent=on?'›':'‹';$('#ptab').title=on?'Ocultar el panel':'Mostrar el panel';lsSet('lev.panel2',on?'1':'0');if(typeof renderProps==='function')renderProps();requestAnimationFrame(()=>{if(view.mode==='3d')req3();else if(view.mode!=='cuadro')draw2D()})}
 $('#bPanel').onclick=()=>setPanel(!view.panel);$('#ptab').onclick=()=>setPanel(!view.panel);
-document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;if((e.key==='c'||e.key==='C')&&!e.metaKey&&!e.ctrlKey&&view.tool==='muro'){e.preventDefault();cycleWallPlace();return}
   if(e.key==='Escape'){if(sdraft){sdraft=null;renderAll();return}if(rdraft){rdraft=null;renderAll();return}if(view.pick){view.pick=null;renderAll();return}if(view.tool==='muro')endChain();sel={t:'proj'};renderAll()}
   const km={v:'sel',m:'muro',p:'puerta',w:'ventana',e:'el',c:'cub'};if(!e.metaKey&&!e.ctrlKey&&km[e.key])setTool(km[e.key]);
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteSel()}});
