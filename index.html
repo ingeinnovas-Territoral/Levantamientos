@@ -344,6 +344,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
+const APPVER=24;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -2575,7 +2576,7 @@ let pDel=null,pRen=null;
 function openDrawer(){renderDrawer();$('#drawer').hidden=false}
 function renderDrawerIfOpen(){if(!$('#drawer').hidden)renderDrawer()}
 function renderDrawer(){const ps=Object.values(store.projects).sort((a,b)=>(b.updated||0)-(a.updated||0));
-  $('#drawerIn').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Proyectos</h2><button class="btn" data-p="close">Cerrar</button></div>
+  $('#drawerIn').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2>Proyectos <small style="font:500 12px var(--f-num);color:var(--ink2)">versión ${APPVER}</small></h2><button class="btn" data-p="close">Cerrar</button></div>
   <div class="row-btns"><button class="btn acc" data-p="new">+ Nuevo levantamiento</button><button class="btn" data-p="import">Abrir archivo guardado…</button><button class="btn" data-p="saveall">Guardar todos</button></div>
   <div class="list">${ps.map(p=>`<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-bottom:1px solid var(--line);background:${p.id===P.id?'var(--accentwash)':'var(--panel)'}">
    ${pRen===p.id?`<div style="display:flex;gap:6px;align-items:center"><input id="renIn" value="${esc(p.name)}" aria-label="Nombre del levantamiento" style="flex:1;min-width:0;font-size:16px;padding:8px;border:2px solid var(--accent);border-radius:7px;background:var(--paper)"><button class="btn sm pri" data-p="renok" data-v="${p.id}">Guardar</button><button class="btn sm" data-p="rencancel">Cancelar</button></div>`:`<div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(p.name)}</b><span class="num" style="font:12px var(--f-num);color:var(--ink2)">${new Date(p.updated||0).toLocaleDateString('es-CO')}</span></div>`}
@@ -2757,7 +2758,7 @@ function boot(){
   new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveProject();return}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();e.shiftKey?doRedo():doUndo()}});
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(view.mode!=='3d'&&view.mode!=='cuadro')draw2D()});
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{const chk=()=>{if(navigator.onLine)reg.update().catch(()=>{})};chk();document.addEventListener('visibilitychange',()=>{if(!document.hidden)chk()});setInterval(chk,60000)}).catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had)return;const b=document.createElement('div');b.className='snack';b.innerHTML='<span>Hay una versión nueva de la app</span><button>Actualizar ahora</button>';b.querySelector('button').onclick=()=>location.reload();document.body.appendChild(b)})}
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 }
 boot();
