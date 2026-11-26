@@ -344,7 +344,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=25;
+const APPVER=26;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -1771,7 +1771,7 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
   if(sel.t==='wall'&&curWall()){const s=curSpace(),w=curWall(),i=s.walls.indexOf(w),sg=geom(s).segs[i];t='Muro M'+(i+1);
     f('Largo · '+({int:'c. interior',eje:'eje',ext:'c. exterior'}[s.ref||'int']),'wlen','len',sg.refL,{full:1});f('Espesor','wall','t',w.t);f('Alto','wall','hIni',w.hIni,{nul:1,ph:f2(s.h)});
     f('Alto final','wall','hFin',w.hFin,{nul:1,ph:f2(w.hIni!=null?w.hIni:s.h)});
-    var extra=renoChips(w.reno||'exist','reno');
+    var extra=sideCtl(s)+renoChips(w.reno||'exist','reno');
     info=`Esquina fija: <button class="btn sm${(view.anchor||'ini')==='ini'?' on':''}" data-pc="anc" data-v="ini">inicio</button> <button class="btn sm${view.anchor==='fin'?' on':''}" data-pc="anc" data-v="fin">final</button>`;
     A.push(['wflip','Voltear muro'],['tool:puerta','+ Puerta'],['tool:ventana','+ Ventana'],['del','Eliminar','dng'])}
   else if(sel.t==='op'&&curOp()){const o=curOp(),s=curSpace(),w=curWall(),sg=geom(s).segs[s.walls.indexOf(w)];t=opCodes()[o.id]+' · '+(o.type==='vano'?'Vano':opSubName(o));
@@ -1785,7 +1785,7 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
     if(!c.marker)A.push(['rot90','Girar 90°']);A.push(['dup','Duplicar'],['del','Eliminar','dng'])}
   else if(sel.t==='space'&&curSpace()){var extra;const s=curSpace(),g=geom(s);t=g.closed?spName(s):'Muros abiertos';
     f('Altura libre','space','h',s.h);f('NPT','space','npt',s.npt);
-    info=g.closed?`Área ${f2(g.area)} m² · perímetro ${f2(g.perim)} m`:`${s.walls.length} muros · faltan ${f2(g.gap)} m para cerrar`;extra=`<div class="cap">Estado de todos sus muros</div>`+renoChips(s.walls.every(w=>(w.reno||'exist')===(s.walls[0]&&s.walls[0].reno||'exist'))?(s.walls[0]&&s.walls[0].reno||'exist'):'',' reno'.trim());if(g.closed)A.push(['ren','Nombre']);A.push(['wflip','Voltear muros'],['foto','Foto'],['del','Eliminar','dng'])}
+    info=g.closed?`Área ${f2(g.area)} m² · perímetro ${f2(g.perim)} m`:`${s.walls.length} muros · faltan ${f2(g.gap)} m para cerrar`;extra=sideCtl(s)+`<div class="cap">Estado de todos sus muros</div>`+renoChips(s.walls.every(w=>(w.reno||'exist')===(s.walls[0]&&s.walls[0].reno||'exist'))?(s.walls[0]&&s.walls[0].reno||'exist'):'',' reno'.trim());if(g.closed)A.push(['ren','Nombre']);A.push(['wflip','Voltear muros'],['foto','Foto'],['del','Eliminar','dng'])}
   else if(sel.t==='zone'&&curZone()){const z=curZone(),g=zoneGeom(z);t=z.name;f('Altura libre','zone','h',z.h);f('NPT','zone','npt',z.npt);info=`Área ${f2(g.area)} m²`;A.push(['ren','Nombre'],['foto','Foto'],['del','Eliminar','dng'])}
   else if(sel.t==='slab'&&curSlab()){const sl=curSlab();t='Losa '+slabCodes()[sl.id];f('Espesor','sl','esp',sl.esp);f('Nivel superior','sl','z',sl.z);info=`Área ${f2(slabArea(sl))} m² · volumen ${f2(slabArea(sl)*sl.esp)} m³`;A.push(['slhole','+ Vacío'],['del','Eliminar','dng'])}
   else if(sel.t==='stair'&&curStair()){const st=curStair(),b=blondel(st);t='Escalera '+stairCodes()[st.id];
@@ -1815,11 +1815,16 @@ function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep|
    <div class="cap">Empezar en la esquina de otro muro por</div><div class="seg">${[['int','Interior'],['eje','Eje'],['ext','Exterior'],['auto','Cercana']].map(([k,n])=>`<button data-pc="wfrom" data-v="${k}" aria-pressed="${wallFromMode()===k}">${cornerIcon(k)}<span>${n}</span></button>`).join('')}</div>
    <div class="cap">Espesor (m)</div><div class="chips">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="${Math.abs(t-v)<1e-6?'on':''}" data-pc="wt" data-v="${v}">${f2(v).replace(/^0/,'')}</button>`).join('')}</div>
    ${roundChips()}`;
-  return{t:'Muro nuevo',F:[],A:[],info:'La línea naranja que dibujas es la cara que mediste. El sombreado muestra hacia dónde queda el grueso del muro.',extra:x,key:'muro'+r+t+st+(view.wallSide||'auto')+wallFromMode()+wallMode()+(view.wallReno||'exist')}}
+  const lw=sel.t==='wall'&&curWall()&&curSpace(),last=lw?`<div class="cap" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-weight:600;color:var(--ink)">Muro que acabas de dibujar</div>`+sideCtl(lw):'';
+  return{t:'Muro nuevo',F:[],A:[],info:'La línea naranja que dibujas es la cara que mediste. El sombreado muestra hacia dónde queda el grueso del muro.',extra:last+(last?`<div class="cap" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-weight:600;color:var(--ink)">Para los próximos muros</div>`:'')+x,key:'muro'+r+t+st+(view.wallSide||'auto')+wallFromMode()+wallMode()+(view.wallReno||'exist')+(lw?sel.wid+lw.ref+lw.side:'')}}
 const RENO=[['exist','Existente','#8f989c'],['nuevo','Nuevo','#1f8a46'],['demoler','A demoler','#c0392b']];
 const renoChips=(cur,pc)=>`<div class="chips">${RENO.map(([k,n,c])=>`<button class="${cur===k?'on':''}" data-pc="${pc}" data-v="${k}"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c};margin-right:4px;vertical-align:-1px"></span>${n}</button>`).join('')}</div>`;
 function cornerIcon(k){const L='<path d="M7 5h30v8H15v17H7z" fill="currentColor" fill-opacity=".3" stroke="currentColor"/>',dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.6" fill="var(--accent)"/>`;
   return`<svg viewBox="0 0 44 34" aria-hidden="true">${L}${k==='int'?dot(15,13):k==='ext'?dot(7,5):k==='eje'?dot(11,9):dot(15,13)+dot(11,9)+dot(7,5)}</svg>`}
+/* en un muro ya dibujado: cara de medida y lado del grueso, que se aplican al momento */
+function sideCtl(s){const r=s.ref||'int',sd=s.side==='izq'||s.side==='der'?s.side:'auto';
+  return`<div class="cap">Medidas por</div><div class="seg">${REFS.map(([k,n])=>`<button data-pc="selref" data-v="${k}" aria-pressed="${r===k}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
+   <div class="cap">El muro crece hacia</div><div class="seg">${[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>`<button data-pc="selside" data-v="${k}" aria-pressed="${sd===k}">${sideIcon(k)}<span>${n}</span></button>`).join('')}</div>`}
 function sideIcon(k){const ar='<path d="M22 31V6M22 6l-4.5 5M22 6l4.5 5" stroke="var(--accent)" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
   if(k==='izq')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="12" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
   if(k==='der')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="22" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
@@ -1879,6 +1884,7 @@ window.addEventListener('resize',()=>placeProps());
   box.addEventListener('click',e=>{if(e.target.closest('.pal'))setTimeout(()=>{propsSig='';renderProps()},380)},true);
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
+    if(c==='selref'||c==='selside'){const sp=curSpace();if(sp){pushUndo();if(c==='selref')sp.ref=b.dataset.v;else sp.side=b.dataset.v;saved();renderAll(true);toast(c==='selref'?'La línea medida ahora es la cara '+({int:'interior',eje:'del eje',ext:'exterior'}[b.dataset.v]):'El grueso del muro se acomodó; la línea medida no se movió')}return}
     if(c==='wdesde'){const v=b.dataset.v==='in'?'int':'ext';view.wallRef=v;view.wallFrom=v;lsSet('lev.wallRef',v);lsSet('lev.wallFrom',v);const cs=chainSpace();if(cs){pushUndo();cs.ref=v;saved();renderAll()}renderProps();draw2D();toast(v==='int'?'La línea que dibujas es la cara de adentro y arrancas en las esquinas de adentro':'La línea que dibujas es la cara de afuera y arrancas en las esquinas de afuera');return}
     if(c==='wmode'){view.wallMode=b.dataset.v;lsSet('lev.wallMode',view.wallMode);endChain();renderProps();draw2D();toast(view.wallMode==='sueltos'?'Cada trazo es un muro aparte. Para volverlo cuarto usa la herramienta Espacio.':'Los muros se encadenan y el cuarto se cierra al volver al punto inicial.');return}
     if(c==='wreno'){view.wallReno=b.dataset.v;lsSet('lev.wallReno',view.wallReno);renderProps();return}
