@@ -329,10 +329,6 @@ main.nopanel aside{display:none}
 </div>
 <input type="file" id="photoIn" accept="image/*" hidden>
 <div class="npop" id="npop" hidden><div class="npbox" role="dialog" aria-label="Nombre"><b id="npTitle">Nombre del espacio</b><input id="npIn" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Escribe con el lápiz…"><div class="chips" id="npSug"></div><div class="row-btns"><button class="btn" id="npNo">Cancelar</button><button class="btn pri" id="npOk">Listo</button></div></div></div>
-<div class="npop" id="pentest" hidden><div class="npbox" style="width:min(520px,94vw)"><b>Prueba del lápiz</b><p class="hint" style="margin:0">Dibuja, aprieta fuerte y haz <b>squeeze</b> (aprieta el cuerpo del Pencil Pro) sobre el recuadro. Abajo se anota todo lo que el iPad le manda a la app.</p>
-<div id="ptPad" style="height:200px;border:1.5px dashed var(--accent);border-radius:10px;touch-action:none;display:flex;align-items:center;justify-content:center;font:600 28px var(--f-num)">—</div>
-<div id="ptLog" style="font:11.5px var(--f-num);height:140px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px;white-space:pre-wrap"></div>
-<div class="row-btns"><button class="btn" id="ptCopy">Copiar registro</button><button class="btn pri" id="ptClose">Cerrar</button></div></div></div>
 <div class="snack" id="snack" hidden><span id="snackT"></span><button id="snackB">↶ Deshacer</button></div>
 <div class="fpop" id="fpop" hidden><button class="btn acc" data-fp="cam">Tomar foto</button><button class="btn" data-fp="front" title="La cámara de la pantalla es gran angular: abarca más área">Frontal · más ancha</button><button class="btn" data-fp="lib">Desde Fotos</button><button class="btn" data-fp="x" aria-label="Cancelar">×</button><span class="fhint">¿Necesitas todo el cuarto? Toma una <b>panorámica</b> en la app Cámara (modo PANO) y elígela con <b>Desde Fotos</b>.</span></div>
 <div class="ped" id="photoEd" hidden>
@@ -357,7 +353,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=29;
+const APPVER=30;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -1839,7 +1835,7 @@ function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep|
   if(view.wallMore)x+=icoRow('Medida',REFS.map(([k,n])=>['wref',k,miniRef(k),'Medidas por '+n.toLowerCase(),r===k]))
    +icoRow('Esquina',[['int','Interior'],['eje','Eje'],['ext','Exterior'],['auto','La más cercana']].map(([k,n])=>['wfrom',k,cornerIcon(k),'Empezar en la esquina '+n.toLowerCase()+' de otro muro',fr===k]))
    +icoRow('Redond.',[[.01,'1'],[.05,'5'],[.1,'10']].map(([v,n])=>['ws',v,txtI(n+'cm'),'Redondear a '+n+' cm',Math.abs(st-v)<1e-6]));
-  x+=`<button class="morebtn" data-pc="wmore">${view.wallMore?'Menos opciones ▴':'Más opciones ▾'}</button>`;if(view.wallMore)x+=`<button class="morebtn" data-pc="ptest">Probar el lápiz (presión y squeeze)</button>`;
+  x+=`<button class="morebtn" data-pc="wmore">${view.wallMore?'Menos opciones ▴':'Más opciones ▾'}</button>`;
   const lw=sel.t==='wall'&&curWall()&&curSpace(),last=lw?`<div class="icsec">Este muro</div>`+sideCtl(lw)+`<div class="icsec">Próximos muros</div>`:'';
   return{t:'Muro',F:[],A:[],info:'Mientras arrastras el muro: toca la pantalla con un dedo (o aprieta fuerte el lápiz) para pasar la línea a una cara, al centro o a la otra cara.',extra:last+x,key:'muro'+r+t+st+sd+fr+wallMode()+rn+(view.wallMore?1:0)+(lw?sel.wid+lw.ref+lw.side:'')}}
 const RENO=[['exist','Existente','#8f989c'],['nuevo','Nuevo','#1f8a46'],['demoler','A demoler','#c0392b']];
@@ -1909,7 +1905,6 @@ window.addEventListener('resize',()=>placeProps());
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
     if(c==='selref'||c==='selside'){const sp=curSpace();if(sp){pushUndo();if(c==='selref')sp.ref=b.dataset.v;else sp.side=b.dataset.v;saved();renderAll(true);toast(c==='selref'?'La línea medida ahora es la cara '+({int:'interior',eje:'del eje',ext:'exterior'}[b.dataset.v]):'El grueso del muro se acomodó; la línea medida no se movió')}return}
-    if(c==='ptest'){openPenTest();return}
     if(c==='wmore'){view.wallMore=!view.wallMore;renderProps();return}
     if(c==='wdesde'){const v=b.dataset.v==='in'?'int':'ext';view.wallRef=v;view.wallFrom=v;lsSet('lev.wallRef',v);lsSet('lev.wallFrom',v);const cs=chainSpace();if(cs){pushUndo();cs.ref=v;saved();renderAll()}renderProps();draw2D();toast(v==='int'?'La línea que dibujas es la cara de adentro y arrancas en las esquinas de adentro':'La línea que dibujas es la cara de afuera y arrancas en las esquinas de afuera');return}
     if(c==='wmode'){view.wallMode=b.dataset.v;lsSet('lev.wallMode',view.wallMode);endChain();renderProps();draw2D();toast(view.wallMode==='sueltos'?'Cada trazo es un muro aparte. Para volverlo cuarto usa la herramienta Espacio.':'Los muros se encadenan y el cuarto se cierra al volver al punto inicial.');return}
@@ -2180,17 +2175,6 @@ function linesDL(dl,piso,interactive){(P.lines||[]).filter(l=>(l.piso||1)===piso
   dl.push({k:'poly',pts:l.pts,closed:l.closed?1:0,fill:null,st:isSel?'sel':'lin',sc:isSel?null:col,ly:'LINEAS',aci:ACI[col]||7});
   if(l.nota){const b=bboxPts(l.pts),p=l.closed?[(b.x0+b.x1)/2,(b.y0+b.y1)/2]:mul(add(l.pts[0],l.pts[1]),.5);txt(dl,p,l.nota,2.4,{st:'ink',ly:'LINEAS',bold:1,dy:1})}})}
 function hitLine(p){const tol=10/view.scale;const ls=(P.lines||[]).filter(l=>(l.piso||1)===view.piso);for(let k=ls.length-1;k>=0;k--){const l=ls[k],n=l.pts.length,m=l.closed?n:n-1;for(let i=0;i<m;i++){const a=l.pts[i],b=l.pts[(i+1)%n],d=sub(b,a),L=len(d)||1e-9,t=clamp(((p[0]-a[0])*d[0]+(p[1]-a[1])*d[1])/(L*L),0,1);if(len(sub(p,add(a,mul(d,t))))<tol)return{t:'line',lnid:l.id}}}return null}
-
-/* ---- prueba del lápiz: muestra todo lo que llega (presión, giro, squeeze si el iPad lo enviara) ---- */
-let ptLines=[],ptMax=0;
-function ptLog(t){ptLines.push(t);if(ptLines.length>200)ptLines.shift();const L=$('#ptLog');L.textContent=ptLines.join('\n');L.scrollTop=L.scrollHeight}
-function openPenTest(){ptLines=[];ptMax=0;$('#ptLog').textContent='';$('#pentest').hidden=false}
-{const pad=$('#ptPad'),ev=['pointerdown','pointerup','pointercancel','pointerover','pointerout','gotpointercapture','lostpointercapture','contextmenu','auxclick','click','dblclick','gesturestart','gestureend','touchforcechange','keydown','keyup'];
-  let lastMove=0;
-  pad.addEventListener('pointermove',e=>{ptMax=Math.max(ptMax,e.pressure);pad.textContent=e.pointerType+' · presión '+e.pressure.toFixed(2)+' · máx '+ptMax.toFixed(2);const now=Date.now();if(now-lastMove>250){lastMove=now;ptLog('mover '+e.pointerType+' p='+e.pressure.toFixed(2)+' giro='+(e.twist||0)+' incl=('+e.tiltX+','+e.tiltY+') botones='+e.buttons+(e.altitudeAngle!=null?' alt='+e.altitudeAngle.toFixed(2):''))}});
-  ev.forEach(n=>(n.startsWith('key')?document:pad).addEventListener(n,e=>{if($('#pentest').hidden)return;if(n==='contextmenu'||n.startsWith('gesture'))e.preventDefault();ptLog('★ '+n+(e.pointerType?' '+e.pointerType:'')+(e.button!=null?' botón='+e.button:'')+(e.buttons!=null?' botones='+e.buttons:'')+(e.key?' tecla='+e.key:'')+(e.pressure!=null?' p='+(+e.pressure).toFixed(2):''))},{passive:false}));
-  $('#ptClose').onclick=()=>{$('#pentest').hidden=true};
-  $('#ptCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ptLines.join('\n'));toast('Registro copiado: pégalo en el chat')}catch(e){toast('No se pudo copiar; mándame una foto de la pantalla')}}}
 
 /* ---- nombre en ventana emergente (se escribe con el lápiz) ---- */
 let npCb=null;
