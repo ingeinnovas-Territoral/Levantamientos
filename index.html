@@ -180,6 +180,15 @@ main.nopanel aside{display:none}
 .props .pf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accentwash)}
 .props .info{grid-column:1/-1;font:11px var(--f-num);color:var(--ink2);line-height:1.35}
 .props .info:empty{display:none}
+.props .icr{grid-column:1/-1;display:flex;align-items:center;gap:6px}
+.props .icl{width:46px;flex:none;font-size:9.5px;color:var(--ink2);text-transform:uppercase;letter-spacing:.03em}
+.props .ics{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.props .ics button{width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.props .ics button svg{width:24px;height:26px}
+.props .ics button[aria-pressed="true"]{border-color:var(--accent);background:var(--accentwash);box-shadow:inset 0 0 0 1px var(--accent)}
+.props .icsep{width:1px;height:22px;background:var(--line);margin:0 3px}
+.props .icsec{grid-column:1/-1;font-size:10px;font-weight:700;color:var(--ink);margin-top:2px}
+.props .morebtn{grid-column:1/-1;border:0;background:none;color:var(--dim);font-size:11px;text-align:left;padding:2px 0;cursor:pointer}
 .props.wide{width:310px}
 .props .pal{padding:0 7px 7px}
 .props .elpal{position:static!important;width:auto!important;max-height:46vh!important;box-shadow:none!important;border:0!important;padding:0!important;background:none!important;overflow:auto;z-index:auto}
@@ -344,7 +353,7 @@ main.nopanel aside{display:none}
 "use strict";
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
-const APPVER=26;
+const APPVER=27;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const num=(v,d=0)=>{if(v==null)return d;const m=String(v).replace(/,/g,'.').match(/-?\d*\.?\d+/);return m?parseFloat(m[0]):d};
@@ -1805,26 +1814,31 @@ function propsModel(){let t='',info='';const F=[],A=[],f=(l,o,k,v,x)=>F.push(Obj
   else if(sel.t==='section'&&curSection()){const c=curSection();t='Corte '+c.name+'-'+c.name;f('Profundidad','sec','depth',c.depth||15,{full:1});A.push(['secview','Ver corte'],['del','Eliminar','dng'])}
   else return null;
   return{t,F,A,info,extra:typeof extra==='string'?extra:''}}
-function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1;
-  const ad=(view.wallRef||'int')==='int'&&wallFromMode()==='int',af=view.wallRef==='ext'&&wallFromMode()==='ext';
-  const x=`<div class="cap" style="font-weight:600;color:var(--ink)">Mido el muro desde</div><div class="seg">${[['in','Adentro',ad],['out','Afuera',af]].map(([k,n,on])=>`<button data-pc="wdesde" data-v="${k}" aria-pressed="${on}">${k==='in'?refIcon('int'):refIcon('ext')}<span>${n}</span></button>`).join('')}</div>
-   <div class="chips">${[['sueltos','Muros sueltos'],['cuartos','Cuartos encadenados']].map(([k,n])=>`<button class="${wallMode()===k?'on':''}" data-pc="wmode" data-v="${k}">${n}</button>`).join('')}</div>
-   <div class="cap">Estado del muro</div>${renoChips(view.wallReno||'exist','wreno')}
-   <div class="cap">Medidas por</div><div class="seg">${REFS.map(([k,n])=>`<button data-pc="wref" data-v="${k}" aria-pressed="${r===k}" title="Medidas por ${n.toLowerCase()}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
-   <div class="cap">El muro crece hacia (mirando en el sentido en que dibujas)</div><div class="seg">${[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>`<button data-pc="wside" data-v="${k}" aria-pressed="${(view.wallSide||'auto')===k}">${sideIcon(k)}<span>${n}</span></button>`).join('')}</div>
-   <div class="cap">Empezar en la esquina de otro muro por</div><div class="seg">${[['int','Interior'],['eje','Eje'],['ext','Exterior'],['auto','Cercana']].map(([k,n])=>`<button data-pc="wfrom" data-v="${k}" aria-pressed="${wallFromMode()===k}">${cornerIcon(k)}<span>${n}</span></button>`).join('')}</div>
-   <div class="cap">Espesor (m)</div><div class="chips">${[.1,.12,.15,.2,.25,.3].map(v=>`<button class="${Math.abs(t-v)<1e-6?'on':''}" data-pc="wt" data-v="${v}">${f2(v).replace(/^0/,'')}</button>`).join('')}</div>
-   ${roundChips()}`;
-  const lw=sel.t==='wall'&&curWall()&&curSpace(),last=lw?`<div class="cap" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-weight:600;color:var(--ink)">Muro que acabas de dibujar</div>`+sideCtl(lw):'';
-  return{t:'Muro nuevo',F:[],A:[],info:'La línea naranja que dibujas es la cara que mediste. El sombreado muestra hacia dónde queda el grueso del muro.',extra:last+(last?`<div class="cap" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-weight:600;color:var(--ink)">Para los próximos muros</div>`:'')+x,key:'muro'+r+t+st+(view.wallSide||'auto')+wallFromMode()+wallMode()+(view.wallReno||'exist')+(lw?sel.wid+lw.ref+lw.side:'')}}
+/* paleta de muros compacta: solo íconos, agrupados en filas */
+const miniRef=k=>{const y=k==='int'?25:k==='ext'?13:19;return`<svg viewBox="0 0 30 34" aria-hidden="true"><rect x="5" y="13" width="20" height="12" fill="currentColor" fill-opacity=".35" stroke="currentColor"/><line x1="1" y1="${y}" x2="29" y2="${y}" stroke="var(--accent)" stroke-width="2.6"/>${k==='eje'?'':`<text x="15" y="${k==='int'?33:9}" font-size="7" text-anchor="middle" fill="currentColor">${k==='int'?'dentro':'fuera'}</text>`}</svg>`};
+const miniMode=k=>k==='sueltos'?'<svg viewBox="0 0 30 34" aria-hidden="true"><path d="M4 8h16M24 12v16M6 26h12" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>':'<svg viewBox="0 0 30 34" aria-hidden="true"><rect x="5" y="7" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3.2"/></svg>';
+const icoRow=(lab,items)=>`<div class="icr"><span class="icl">${lab}</span><span class="ics">${items.map(it=>it==='|'?'<i class="icsep"></i>':`<button data-pc="${it[0]}" data-v="${it[1]}" aria-pressed="${!!it[4]}" title="${esc(it[3])}" aria-label="${esc(it[3])}">${it[2]}</button>`).join('')}</span></div>`;
+const sw=c=>`<svg viewBox="0 0 30 34" aria-hidden="true"><rect x="6" y="10" width="18" height="14" rx="2" fill="${c}"/></svg>`;
+const txtI=t=>`<b style="font:600 11px var(--f-num)">${t}</b>`;
+function wallToolModel(){const r=view.wallRef||'int',t=trace.t,st=view.wallStep||.1,sd=view.wallSide||'auto',fr=wallFromMode(),rn=view.wallReno||'exist';
+  const ad=r==='int'&&fr==='int',af=r==='ext'&&fr==='ext';
+  let x=icoRow('Mido',[['wdesde','in',miniRef('int'),'Mido desde adentro',ad],['wdesde','out',miniRef('ext'),'Mido desde afuera',af],'|',['wmode','sueltos',miniMode('sueltos'),'Muros sueltos',wallMode()==='sueltos'],['wmode','cuartos',miniMode('cuartos'),'Cuartos encadenados',wallMode()==='cuartos']])
+   +icoRow('Grueso',[['wside','izq',sideIcon('izq'),'El grueso crece a la izquierda',sd==='izq'],['wside','der',sideIcon('der'),'El grueso crece a la derecha',sd==='der'],['wside','auto',sideIcon('auto'),'Automático',sd==='auto']])
+   +icoRow('Estado',RENO.map(([k,n,c])=>['wreno',k,sw(c),n,rn===k]))
+   +icoRow('Espesor',[.1,.12,.15,.2,.25,.3].map(v=>['wt',v,txtI(f2(v).replace(/^0/,'')),'Espesor '+f2(v)+' m',Math.abs(t-v)<1e-6]));
+  if(view.wallMore)x+=icoRow('Medida',REFS.map(([k,n])=>['wref',k,miniRef(k),'Medidas por '+n.toLowerCase(),r===k]))
+   +icoRow('Esquina',[['int','Interior'],['eje','Eje'],['ext','Exterior'],['auto','La más cercana']].map(([k,n])=>['wfrom',k,cornerIcon(k),'Empezar en la esquina '+n.toLowerCase()+' de otro muro',fr===k]))
+   +icoRow('Redond.',[[.01,'1'],[.05,'5'],[.1,'10']].map(([v,n])=>['ws',v,txtI(n+'cm'),'Redondear a '+n+' cm',Math.abs(st-v)<1e-6]));
+  x+=`<button class="morebtn" data-pc="wmore">${view.wallMore?'Menos opciones ▴':'Más opciones ▾'}</button>`;
+  const lw=sel.t==='wall'&&curWall()&&curSpace(),last=lw?`<div class="icsec">Este muro</div>`+sideCtl(lw)+`<div class="icsec">Próximos muros</div>`:'';
+  return{t:'Muro',F:[],A:[],info:'',extra:last+x,key:'muro'+r+t+st+sd+fr+wallMode()+rn+(view.wallMore?1:0)+(lw?sel.wid+lw.ref+lw.side:'')}}
 const RENO=[['exist','Existente','#8f989c'],['nuevo','Nuevo','#1f8a46'],['demoler','A demoler','#c0392b']];
 const renoChips=(cur,pc)=>`<div class="chips">${RENO.map(([k,n,c])=>`<button class="${cur===k?'on':''}" data-pc="${pc}" data-v="${k}"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c};margin-right:4px;vertical-align:-1px"></span>${n}</button>`).join('')}</div>`;
 function cornerIcon(k){const L='<path d="M7 5h30v8H15v17H7z" fill="currentColor" fill-opacity=".3" stroke="currentColor"/>',dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.6" fill="var(--accent)"/>`;
   return`<svg viewBox="0 0 44 34" aria-hidden="true">${L}${k==='int'?dot(15,13):k==='ext'?dot(7,5):k==='eje'?dot(11,9):dot(15,13)+dot(11,9)+dot(7,5)}</svg>`}
 /* en un muro ya dibujado: cara de medida y lado del grueso, que se aplican al momento */
 function sideCtl(s){const r=s.ref||'int',sd=s.side==='izq'||s.side==='der'?s.side:'auto';
-  return`<div class="cap">Medidas por</div><div class="seg">${REFS.map(([k,n])=>`<button data-pc="selref" data-v="${k}" aria-pressed="${r===k}">${refIcon(k)}<span>${{int:'Interior',eje:'Eje',ext:'Exterior'}[k]}</span></button>`).join('')}</div>
-   <div class="cap">El muro crece hacia</div><div class="seg">${[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>`<button data-pc="selside" data-v="${k}" aria-pressed="${sd===k}">${sideIcon(k)}<span>${n}</span></button>`).join('')}</div>`}
+  return icoRow('Medida',REFS.map(([k,n])=>['selref',k,miniRef(k),'Medidas por '+n.toLowerCase(),r===k]))+icoRow('Grueso',[['izq','Izquierda'],['der','Derecha'],['auto','Automático']].map(([k,n])=>['selside',k,sideIcon(k),'El grueso crece: '+n.toLowerCase(),sd===k]))}
 function sideIcon(k){const ar='<path d="M22 31V6M22 6l-4.5 5M22 6l4.5 5" stroke="var(--accent)" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
   if(k==='izq')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="12" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
   if(k==='der')return`<svg viewBox="0 0 44 34" aria-hidden="true"><rect x="22" y="5" width="10" height="26" fill="currentColor" fill-opacity=".35" stroke="currentColor"/>${ar}</svg>`;
@@ -1885,6 +1899,7 @@ window.addEventListener('resize',()=>placeProps());
   box.addEventListener('click',e=>{const b=e.target.closest('[data-pc]');if(!b)return;const c=b.dataset.pc;
     if(c==='close'){propsHide=view.mode==='planta'&&view.tool==='muro'?'muro':selKey();renderProps();toast(propsHide==='muro'?'Toca otra vez Muro para volver a verlo.':'Cuadro cerrado. Vuelve a aparecer al tocar otro elemento.');return}
     if(c==='selref'||c==='selside'){const sp=curSpace();if(sp){pushUndo();if(c==='selref')sp.ref=b.dataset.v;else sp.side=b.dataset.v;saved();renderAll(true);toast(c==='selref'?'La línea medida ahora es la cara '+({int:'interior',eje:'del eje',ext:'exterior'}[b.dataset.v]):'El grueso del muro se acomodó; la línea medida no se movió')}return}
+    if(c==='wmore'){view.wallMore=!view.wallMore;renderProps();return}
     if(c==='wdesde'){const v=b.dataset.v==='in'?'int':'ext';view.wallRef=v;view.wallFrom=v;lsSet('lev.wallRef',v);lsSet('lev.wallFrom',v);const cs=chainSpace();if(cs){pushUndo();cs.ref=v;saved();renderAll()}renderProps();draw2D();toast(v==='int'?'La línea que dibujas es la cara de adentro y arrancas en las esquinas de adentro':'La línea que dibujas es la cara de afuera y arrancas en las esquinas de afuera');return}
     if(c==='wmode'){view.wallMode=b.dataset.v;lsSet('lev.wallMode',view.wallMode);endChain();renderProps();draw2D();toast(view.wallMode==='sueltos'?'Cada trazo es un muro aparte. Para volverlo cuarto usa la herramienta Espacio.':'Los muros se encadenan y el cuarto se cierra al volver al punto inicial.');return}
     if(c==='wreno'){view.wallReno=b.dataset.v;lsSet('lev.wallReno',view.wallReno);renderProps();return}
